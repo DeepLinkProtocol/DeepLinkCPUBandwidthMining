@@ -5,7 +5,7 @@ deeplink长租竞赛质押合约接口文档(dbcscan)
 deeplink长租竞赛质押合约是用于管理 NFT 质押的智能合约。它提供了多种功能，包括质押、解质押、领取奖励等。
 
 ## 合约地址(测试网)
-    质押合约：0x23ba922d2c435ea65aceb6d56feec7a7c29948b8
+    质押合约：0x995ddda33a7434c6080f45d98dda62721dd6f019
     nft: 0x905dE58579886C5afe9B6406CFDE82bd6a1087C1
     dlc token: 0xC8b47112D5413c6d06D4BB7573fD903908246614
 
