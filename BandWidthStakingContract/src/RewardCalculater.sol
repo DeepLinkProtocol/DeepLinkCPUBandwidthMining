@@ -15,7 +15,6 @@ contract RewardCalculator {
 
     uint256 public totalAdjustUnit;
     uint256 public rewardStartAtTimestamp;
-    uint256 public rewardStartGPUThreshold;
 
     RewardCalculatorLib.RewardsPerShare public rewardsPerCalcPoint;
 
