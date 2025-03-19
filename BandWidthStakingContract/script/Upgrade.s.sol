@@ -25,13 +25,7 @@ contract Upgrade is Script {
         console.log("Staking Proxy Address:", stakingProxy);
         address transparentProxy = address(stakingProxy);
 
-        //                Options memory opts;
-        //
-        //                opts.referenceContract = "NFTStakingOld.sol:NFTStaking";
-        //
-        //                Upgrades.validateUpgrade("NFTStaking.sol:NFTStaking", opts);
-
-        Upgrades.upgradeProxy(transparentProxy, "BandWidthStaking.sol:BandWidthStaking", "");
+        Upgrades.upgradeProxy(transparentProxy, "NFTStaking.sol:BandWidthStaking", "");
 
         vm.stopBroadcast();
     }

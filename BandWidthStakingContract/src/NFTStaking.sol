@@ -123,6 +123,8 @@ contract BandWidthStaking is
     mapping(string => uint256) public region2Value;
     mapping(string => RegionStakeInfo) public region2StakeInfo;
 
+    address public burnAddress;
+
     event Staked(address indexed stakeholder, string machineId, uint256 originCalcPoint, uint256 calcPoint);
     event AddedStakeHours(address indexed stakeholder, string machineId, uint256 stakeHours);
 
@@ -148,6 +150,7 @@ contract BandWidthStaking is
     event MachineRegister(string machineId, uint256 calcPoint);
     event MachineUnregister(string machineId, uint256 calcPoint);
     event SlashMachineOnOffline(address indexed stakeHolder, string machineId, uint256 slashAmount);
+    event BurnAddressSet(address indexed burnAddress);
 
     modifier onlyDBCAIContract() {
         require(msg.sender == address(dbcAIContract), "only dbc AI contract");
@@ -203,7 +206,7 @@ contract BandWidthStaking is
         rewardStartAtTimestamp = currentTime;
         lastBurnTime = currentTime;
         slashPayToAddress = _slashPayToAddress;
-
+        canUpgradeAddress = msg.sender;
         setRegions();
     }
 
@@ -216,9 +219,9 @@ contract BandWidthStaking is
         canUpgradeAddress = addr;
     }
 
-    function requestUpgradeAddress(address addr) external pure returns (bytes memory) {
-        bytes memory data = abi.encodeWithSignature("setUpgradeAddress(address)", addr);
-        return data;
+    function setBurnAddress(address _burnAddress) external {
+        burnAddress = _burnAddress;
+        emit BurnAddressSet(_burnAddress);
     }
 
     function setRewardToken(address token) external onlyOwner {
@@ -398,11 +401,13 @@ contract BandWidthStaking is
         return durationInactiveReward;
     }
 
-    function burnInactiveRegionRewards() external {
+    function burnInactiveRegionRewards() internal {
         uint256 durationInactiveReward = getInactiveRegionRewards();
         totalBurnedRewardAmount += durationInactiveReward;
         rewardToken.approve(address(this), durationInactiveReward);
-        rewardToken.burnFrom(address(this), durationInactiveReward);
+//        rewardToken.burnFrom(address(this), durationInactiveReward);
+        require(burnAddress != address(0), "burn address not set");
+        rewardToken.transfer(burnAddress, durationInactiveReward);
         lastBurnTime = block.timestamp;
         emit BurnedInactiveRegionRewards(durationInactiveReward);
     }
@@ -632,6 +637,9 @@ contract BandWidthStaking is
             machineId2LockedRewardDetail[machineId].totalAmount += lockedAmount;
         }
 
+        // burn inactive region rewards
+        burnInactiveRegionRewards();
+
         emit Claimed(
             stakeholder, machineId, rewardAmount + _dailyReleaseAmount, canClaimAmount, moveToReserveAmount, _paidSlash
         );
@@ -850,8 +858,9 @@ contract BandWidthStaking is
 
         RewardCalculatorLib.RewardsPerShare memory currentRewardPerCalcPoint =
             _getUpdatedRewardPerCalcPoint(0, totalDistributedRewardAmount, totalBurnedRewardAmount);
+        uint256 pendingReward = currentRewardPerCalcPoint.accumulatedPerShare * region2Value[stakeInfo.region] / totalRegionValue;
         uint256 rewardAmount = RewardCalculatorLib.calculatePendingUserRewards(
-            machineShares, machineRewards.lastAccumulatedPerShare, currentRewardPerCalcPoint.accumulatedPerShare
+            machineShares, machineRewards.lastAccumulatedPerShare, pendingReward
         );
 
         return machineRewards.accumulated + rewardAmount;
