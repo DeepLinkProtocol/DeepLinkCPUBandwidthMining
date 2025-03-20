@@ -219,7 +219,11 @@ contract BandWidthStaking is
         canUpgradeAddress = addr;
     }
 
-    function setBurnAddress(address _burnAddress) external {
+    function setSlashPayToAddress(address addr) external onlyOwner  {
+
+    }
+
+    function setBurnAddress(address _burnAddress) external onlyOwner {
         burnAddress = _burnAddress;
         emit BurnAddressSet(_burnAddress);
     }
@@ -858,12 +862,11 @@ contract BandWidthStaking is
 
         RewardCalculatorLib.RewardsPerShare memory currentRewardPerCalcPoint =
             _getUpdatedRewardPerCalcPoint(0, totalDistributedRewardAmount, totalBurnedRewardAmount);
-        uint256 pendingReward = currentRewardPerCalcPoint.accumulatedPerShare * region2Value[stakeInfo.region] / totalRegionValue;
         uint256 rewardAmount = RewardCalculatorLib.calculatePendingUserRewards(
-            machineShares, machineRewards.lastAccumulatedPerShare, pendingReward
+            machineShares, machineRewards.lastAccumulatedPerShare, currentRewardPerCalcPoint.accumulatedPerShare
         );
 
-        return machineRewards.accumulated + rewardAmount;
+        return machineRewards.accumulated + rewardAmount * region2Value[stakeInfo.region] / totalRegionValue;
     }
 
     function _reportMachineFault(string memory machineId) internal {
