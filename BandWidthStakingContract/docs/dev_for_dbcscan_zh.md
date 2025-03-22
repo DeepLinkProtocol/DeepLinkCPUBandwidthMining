@@ -17,7 +17,6 @@ deeplink长租竞赛质押合约是用于管理 NFT 质押的智能合约。它�
     - `machineId`: 机器 ID
     - `nftTokenIds`: NFT Token ID 数组
     - `nftTokenIdBalances`: NFT Token ID 数量数组
-    - `rentId`: 在dbc链上的租用id
 - 返回值：无
 - 事件：
     - `staked`: 质押NFT成功事件
