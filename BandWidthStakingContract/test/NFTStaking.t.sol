@@ -51,8 +51,9 @@ contract RentTest is Test {
         nftStaking.setRewardStartAt(block.timestamp);
 
         vm.mockCall(
-            address(nftStaking.dbcAIContract()), abi.encodeWithSelector(IDBCAIContract.machineBandWidthInfos.selector),
-            abi.encode(owner, "what ever", 1, 16, "Maharashtra", 100,  100)
+            address(nftStaking.dbcAIContract()),
+            abi.encodeWithSelector(IDBCAIContract.machineBandWidthInfos.selector),
+            abi.encode(owner, "what ever", 1, 16, "Maharashtra", 100, 100)
         );
         vm.mockCall(
             address(dbcAIContract), abi.encodeWithSelector(dbcAIContract.reportStakingStatus.selector), abi.encode()
@@ -87,8 +88,9 @@ contract RentTest is Test {
 
     function stakeByOwner(string memory machineId, uint256 reserveAmount, address _owner) public {
         vm.mockCall(
-            address(nftStaking.dbcAIContract()), abi.encodeWithSelector(IDBCAIContract.machineBandWidthInfos.selector),
-            abi.encode(_owner, "what ever", 1, 16, "Maharashtra", 100,  100)
+            address(nftStaking.dbcAIContract()),
+            abi.encodeWithSelector(IDBCAIContract.machineBandWidthInfos.selector),
+            abi.encode(_owner, "what ever", 1, 16, "Maharashtra", 100, 100)
         );
 
         vm.mockCall(
@@ -141,11 +143,11 @@ contract RentTest is Test {
 
         passDays(1);
 
-
         vm.startPrank(stakeHolder);
         assertEq(
-            nftStaking.getReward(machineId)/1e18,
-            nftStaking.getDailyRewardAmount() * nftStaking.region2Value("Maharashtra") / nftStaking.totalRegionValue()/1e18,
+            nftStaking.getReward(machineId) / 1e18,
+            nftStaking.getDailyRewardAmount() * nftStaking.region2Value("Maharashtra") / nftStaking.totalRegionValue()
+                / 1e18,
             "get reward gt failed after reward start 1 day 2"
         );
         vm.stopPrank();
@@ -197,46 +199,46 @@ contract RentTest is Test {
         tokenIds3[0] = 10;
     }
 
-//    function testBurnInactiveRegionRewards() public {
-//        address stakeHolder = owner;
-//
-//        string memory machineId = "machineId";
-//
-//        uint256[] memory tokenIds = new uint256[](1);
-//        tokenIds[0] = 1;
-//        vm.startPrank(stakeHolder);
-//        // staking.stake(machineId, 0, tokenIds, 1);
-//        stakeByOwner(machineId, 0, stakeHolder);
-//        vm.stopPrank();
-//
-//        //        (address[] memory topHolders, uint256[] memory topCalcPoints) = state.getTopStakeHolders();
-//        //        assertEq(topHolders[0], stakeHolder);
-//        //        assertEq(topCalcPoints[0], 100);
-//
-//        assertTrue(nftStaking.isStaking(machineId));
-//
-//        passDays(1);
-//
-//        vm.startPrank(stakeHolder);
-//        assertLt(
-//            nftStaking.getReward(machineId),
-//            nftStaking.getDailyRewardAmount(),
-//            "get reward lt failed after reward start 1 day 1"
-//        );
-//        assertGt(
-//            nftStaking.getReward(machineId),
-//            nftStaking.getDailyRewardAmount() * mockRegionValue / nftStaking.totalRegionValue() - 1 * 1e18,
-//            "get reward gt failed after reward start 1 day 2"
-//        );
-//        vm.stopPrank();
-//
-////        nftStaking.burnInactiveRegionRewards();
-////        uint256 activeRegionReward = nftStaking.getDailyRewardAmount() * mockRegionValue / nftStaking.totalRegionValue();
-////        assertLe(nftStaking.totalBurnedRewardAmount(), nftStaking.getDailyRewardAmount() - activeRegionReward);
-////        assertGe(
-////            nftStaking.totalBurnedRewardAmount(), nftStaking.getDailyRewardAmount() - activeRegionReward - 1 * 1e18
-////        );
-//    }
+    //    function testBurnInactiveRegionRewards() public {
+    //        address stakeHolder = owner;
+    //
+    //        string memory machineId = "machineId";
+    //
+    //        uint256[] memory tokenIds = new uint256[](1);
+    //        tokenIds[0] = 1;
+    //        vm.startPrank(stakeHolder);
+    //        // staking.stake(machineId, 0, tokenIds, 1);
+    //        stakeByOwner(machineId, 0, stakeHolder);
+    //        vm.stopPrank();
+    //
+    //        //        (address[] memory topHolders, uint256[] memory topCalcPoints) = state.getTopStakeHolders();
+    //        //        assertEq(topHolders[0], stakeHolder);
+    //        //        assertEq(topCalcPoints[0], 100);
+    //
+    //        assertTrue(nftStaking.isStaking(machineId));
+    //
+    //        passDays(1);
+    //
+    //        vm.startPrank(stakeHolder);
+    //        assertLt(
+    //            nftStaking.getReward(machineId),
+    //            nftStaking.getDailyRewardAmount(),
+    //            "get reward lt failed after reward start 1 day 1"
+    //        );
+    //        assertGt(
+    //            nftStaking.getReward(machineId),
+    //            nftStaking.getDailyRewardAmount() * mockRegionValue / nftStaking.totalRegionValue() - 1 * 1e18,
+    //            "get reward gt failed after reward start 1 day 2"
+    //        );
+    //        vm.stopPrank();
+    //
+    ////        nftStaking.burnInactiveRegionRewards();
+    ////        uint256 activeRegionReward = nftStaking.getDailyRewardAmount() * mockRegionValue / nftStaking.totalRegionValue();
+    ////        assertLe(nftStaking.totalBurnedRewardAmount(), nftStaking.getDailyRewardAmount() - activeRegionReward);
+    ////        assertGe(
+    ////            nftStaking.totalBurnedRewardAmount(), nftStaking.getDailyRewardAmount() - activeRegionReward - 1 * 1e18
+    ////        );
+    //    }
 
     function claimAfter(string memory machineId, address _owner, uint256 hour, bool shouldGetMore) internal {
         uint256 balance1 = rewardToken.balanceOf(_owner);
@@ -273,6 +275,4 @@ contract RentTest is Test {
         vm.warp(vm.getBlockTimestamp() + timeToAdvance - 1);
         vm.roll(vm.getBlockNumber() + n - 1);
     }
-
-
 }
