@@ -108,6 +108,7 @@ contract BandWidthStaking is
         uint256 totalRewardAmount;
         uint256 claimedRewardAmount;
         uint256 lockedRewardAmount;
+        uint256 canClaimRewardAmount;
     }
 
     mapping(uint256 => SlashInfo) public slashId2SlashInfo;
@@ -121,7 +122,7 @@ contract BandWidthStaking is
     mapping(string => uint256) public region2Value;
     mapping(string => RegionStakeInfo) public region2StakeInfo;
 
-    event Staked(address indexed stakeholder, string machineId, uint256 originCalcPoint, uint256 calcPoint);
+    event Staked(address indexed stakeholder, string machineId, uint256 originCalcPoint, uint256 calcPoint, string region);
 
     event ReserveDLC(string machineId, uint256 amount);
     event Unstaked(address indexed stakeholder, string machineId, uint256 paybackReserveAmount);
@@ -498,7 +499,7 @@ contract BandWidthStaking is
         require(calcPoint >= 10, "machine calc point not found");
         require(cpuCores >= 1, "machine cpu cores not found");
         require(machineMem >= 2, "machine memory not enough");
-        require(hdd >= 50, "machine hdd not enough");
+        require(hdd >= 30, "machine hdd not enough");
         require(machineOwner == stakeholder, "machine owner not match");
 
         (bool isOnline, bool isRegistered) = dbcAIContract.getMachineState(machineId, PROJECT_NAME, STAKING_TYPE);
@@ -532,6 +533,8 @@ contract BandWidthStaking is
             originCalcPoint: bandwidth
         });
 
+        //        machineId2StakeUnitRewards[machineId].lastAccumulatedPerShare = rewardsPerCalcPoint.accumulatedPerShare;
+
         _joinStaking(machineId, calcPoint, 0);
         _tryInitMachineLockRewardInfo(machineId, currentTime);
 
@@ -539,7 +542,7 @@ contract BandWidthStaking is
         RegionStakeInfo storage regionStakeInfo = region2StakeInfo[region];
         regionStakeInfo.stakedMachineCount += 1;
         dbcAIContract.reportStakingStatus(PROJECT_NAME, StakingType.Free, machineId, 1, true);
-        emit Staked(stakeholder, machineId, originCalcPoint, calcPoint);
+        emit Staked(stakeholder, machineId, originCalcPoint, calcPoint, region);
     }
 
     //    function getPendingSlashCount(string memory machineId) public view returns (uint256) {
@@ -582,13 +585,19 @@ contract BandWidthStaking is
         return nftCount;
     }
 
+    function getRegionRewardsPerSeconds(string memory region) public view returns (uint256) {
+        uint256 regionValue = region2Value[region];
+        uint256 totalRewardPerSecond = getDailyRewardAmount() / 1 days;
+        return  totalRewardPerSecond * regionValue / totalRegionValue;
+    }
+
     function _claim(string memory machineId) internal {
         require(rewardStart(), "reward not start yet");
         StakeInfo storage stakeInfo = machineId2StakeInfos[machineId];
 
         uint256 machineShares = _getMachineShares(stakeInfo.calcPoint, stakeInfo.reservedAmount);
-        _updateMachineRewards(machineId, machineShares, 0, totalDistributedRewardAmount, totalBurnedRewardAmount);
-
+        uint256 regionRewardsPerSeconds = getRegionRewardsPerSeconds(stakeInfo.region);
+        _updateMachineRewardsOfRegion(machineId, machineShares, stakeInfo.region, regionRewardsPerSeconds);
         address stakeholder = stakeInfo.holder;
 
         uint256 currentTimestamp = block.timestamp;
@@ -643,8 +652,8 @@ contract BandWidthStaking is
             machineId2LockedRewardDetail[machineId].totalAmount += lockedAmount;
         }
 
-        // burn inactive region rewards
-        burnInactiveRegionRewards();
+        // burn inactive region rewards todo open
+//        burnInactiveRegionRewards();
 
         emit Claimed(
             stakeholder, machineId, rewardAmount + _dailyReleaseAmount, canClaimAmount, moveToReserveAmount, _paidSlash
@@ -686,7 +695,7 @@ contract BandWidthStaking is
         require(!isInSlashing(machineId), "machine should restake and paid slash before claim");
 
         require(stakeInfo.holder == stakeholder, "not stakeholder");
-        require(block.timestamp - stakeInfo.lastClaimAtTimestamp >= 1 days, "last claim less than 1 day");
+        //        require(block.timestamp - stakeInfo.lastClaimAtTimestamp >= 1 days, "last claim less than 1 day");
 
         _claim(machineId);
     }
@@ -719,7 +728,6 @@ contract BandWidthStaking is
         require(dlcClientWalletAddress[msg.sender] || msg.sender == stakeInfo.holder, "not dlc client wallet or owner");
         require(stakeInfo.startAtTimestamp > 0, "staking not found");
         require(!stakeInfo.isRentedByUser, "machine rented by user");
-        //        require(block.timestamp >= stakeInfo.endAtTimestamp, "staking not ended"); todo
         (, bool isRegistered) = dbcAIContract.getMachineState(machineId, PROJECT_NAME, STAKING_TYPE);
         require(!isRegistered, "machine still registered");
         _claim(machineId);
@@ -811,15 +819,50 @@ contract BandWidthStaking is
         return RewardCalculator._getDailyRewardAmount(totalDistributedRewardAmount, totalBurnedRewardAmount);
     }
 
-    function _updateRewardPerCalcPoint() internal {
-        uint256 accumulatedPerShareBefore = rewardsPerCalcPoint.accumulatedPerShare;
-        rewardsPerCalcPoint = _getUpdatedRewardPerCalcPoint(0, totalDistributedRewardAmount, totalBurnedRewardAmount);
-        emit RewardsPerCalcPointUpdate(accumulatedPerShareBefore, rewardsPerCalcPoint.accumulatedPerShare);
-    }
+    //    function _updateRewardPerCalcPoint() internal {
+    //        uint256 accumulatedPerShareBefore = rewardsPerCalcPoint.accumulatedPerShare;
+    //        rewardsPerCalcPoint = _getUpdatedRewardPerCalcPoint(totalDistributedRewardAmount, totalBurnedRewardAmount);
+    //        emit RewardsPerCalcPointUpdate(accumulatedPerShareBefore, rewardsPerCalcPoint.accumulatedPerShare);
+    //    }
 
-    function _getMachineShares(uint256 calcPoint, uint256 reservedAmount) internal pure returns (uint256) {
+    function _getMachineShares(uint256 calcPoint, uint256 reservedAmount) public pure returns (uint256) {
         return
             calcPoint * ToolLib.LnUint256(reservedAmount > BASE_RESERVE_AMOUNT ? reservedAmount : BASE_RESERVE_AMOUNT);
+    }
+
+    function _joinStaking1(string memory machineId, uint256 calcPoint, uint256 reserveAmount) internal {
+        StakeInfo storage stakeInfo = machineId2StakeInfos[machineId];
+
+        uint256 oldLnReserved = ToolLib.LnUint256(
+            stakeInfo.reservedAmount > BASE_RESERVE_AMOUNT ? stakeInfo.reservedAmount : BASE_RESERVE_AMOUNT
+        );
+
+        uint256 machineShares = stakeInfo.calcPoint * oldLnReserved;
+
+        uint256 newLnReserved =
+            ToolLib.LnUint256(reserveAmount > BASE_RESERVE_AMOUNT ? reserveAmount : BASE_RESERVE_AMOUNT);
+
+        totalAdjustUnit -= stakeInfo.calcPoint * oldLnReserved;
+        totalAdjustUnit += calcPoint * newLnReserved;
+
+        region2totalAdjustUnit[stakeInfo.region] -= stakeInfo.calcPoint * oldLnReserved;
+        region2totalAdjustUnit[stakeInfo.region] += calcPoint * newLnReserved;
+
+        // update machine rewards
+        //        _updateMachineRewards(machineId, machineShares, totalDistributedRewardAmount, totalBurnedRewardAmount);
+        uint256 regionRewardsPerSeconds = getRegionRewardsPerSeconds(stakeInfo.region);
+        _updateMachineRewardsOfRegion(machineId, machineShares, stakeInfo.region, regionRewardsPerSeconds);
+
+        totalCalcPoint = totalCalcPoint - stakeInfo.calcPoint + calcPoint;
+
+        stakeInfo.calcPoint = calcPoint;
+        if (reserveAmount > stakeInfo.reservedAmount) {
+            //            rewardToken.transferFrom(stakeInfo.holder, address(this), reserveAmount - stakeInfo.reservedAmount);
+        }
+        if (reserveAmount != stakeInfo.reservedAmount) {
+            totalReservedAmount = totalReservedAmount + reserveAmount - stakeInfo.reservedAmount;
+            stakeInfo.reservedAmount = reserveAmount;
+        }
     }
 
     function _joinStaking(string memory machineId, uint256 calcPoint, uint256 reserveAmount) internal {
@@ -837,14 +880,19 @@ contract BandWidthStaking is
         totalAdjustUnit -= stakeInfo.calcPoint * oldLnReserved;
         totalAdjustUnit += calcPoint * newLnReserved;
 
+        region2totalAdjustUnit[stakeInfo.region] -= stakeInfo.calcPoint * oldLnReserved;
+        region2totalAdjustUnit[stakeInfo.region] += calcPoint * newLnReserved;
+
         // update machine rewards
-        _updateMachineRewards(machineId, machineShares, 0, totalDistributedRewardAmount, totalBurnedRewardAmount);
+//        _updateMachineRewards(machineId, machineShares, totalDistributedRewardAmount, totalBurnedRewardAmount);
+        uint256 regionRewardsPerSeconds = getRegionRewardsPerSeconds(stakeInfo.region);
+        _updateMachineRewardsOfRegion(machineId, machineShares, stakeInfo.region, regionRewardsPerSeconds);
 
         totalCalcPoint = totalCalcPoint - stakeInfo.calcPoint + calcPoint;
 
         stakeInfo.calcPoint = calcPoint;
         if (reserveAmount > stakeInfo.reservedAmount) {
-            rewardToken.transferFrom(stakeInfo.holder, address(this), reserveAmount);
+            rewardToken.transferFrom(stakeInfo.holder, address(this), reserveAmount - stakeInfo.reservedAmount);
         }
         if (reserveAmount != stakeInfo.reservedAmount) {
             totalReservedAmount = totalReservedAmount + reserveAmount - stakeInfo.reservedAmount;
@@ -858,16 +906,18 @@ contract BandWidthStaking is
             return 0;
         }
         uint256 machineShares = _getMachineShares(stakeInfo.calcPoint, stakeInfo.reservedAmount);
-
+        uint256 regionTotalShares = region2totalAdjustUnit[stakeInfo.region];
         RewardCalculatorLib.UserRewards memory machineRewards = machineId2StakeUnitRewards[machineId];
 
+        uint256 regionRewardsPerSeconds = getRegionRewardsPerSeconds(stakeInfo.region);
         RewardCalculatorLib.RewardsPerShare memory currentRewardPerCalcPoint =
-            _getUpdatedRewardPerCalcPoint(0, totalDistributedRewardAmount, totalBurnedRewardAmount);
-        uint256 rewardAmount = RewardCalculatorLib.calculatePendingUserRewards(
-            machineShares, machineRewards.lastAccumulatedPerShare, currentRewardPerCalcPoint.accumulatedPerShare
+            _getUpdatedRegionRewardPerCalcPoint(regionTotalShares, regionRewardsPerSeconds,stakeInfo.region);
+        //            _getUpdatedRewardPerCalcPoint(totalDistributedRewardAmount, totalBurnedRewardAmount, regionTotalShares);
+        uint256 rewardAmount = RewardCalculatorLib.calculatePendingMachineRewards(
+            machineShares,  currentRewardPerCalcPoint.accumulatedPerShare,machineRewards.lastAccumulatedPerShare
         );
 
-        return machineRewards.accumulated + rewardAmount * region2Value[stakeInfo.region] / totalRegionValue;
+        return machineRewards.accumulated + rewardAmount;
     }
 
     function _reportMachineFault(string memory machineId, uint256 slashId) internal {
@@ -932,19 +982,21 @@ contract BandWidthStaking is
 
         StakeInfo memory stakeInfo = machineId2StakeInfos[machineId];
         if (tp == NotifyType.MachineOffline) {
-            SlashInfo memory slashInfo = newSlashInfo(stakeInfo.holder, machineId, BASE_RESERVE_AMOUNT);
-            addSlashInfoAndReport(slashInfo);
+//            SlashInfo memory slashInfo = newSlashInfo(stakeInfo.holder, machineId, BASE_RESERVE_AMOUNT);
+//            addSlashInfoAndReport(slashInfo);
             emit SlashMachineOnOffline(stakeInfo.holder, machineId, BASE_RESERVE_AMOUNT);
         }
         return true;
     }
 
     function getMachineInfoForDBCScan(string memory machineId) external view returns (MachineInfoForDBCScan memory) {
-        (, uint256 canClaimAmount, uint256 lockedAmount, uint256 claimedAmount) = getRewardInfo(machineId);
-        uint256 totalRewardAmount = canClaimAmount + lockedAmount + claimedAmount;
+        (, uint256 canClaimAmount, , uint256 claimedAmount) = getRewardInfo(machineId);
+//        uint256 totalRewardAmount = canClaimAmount + lockedAmount + claimedAmount;
         bool _isStaking = isStaking(machineId);
         (,, uint256 cpuCores, uint256 machineMem, string memory region, uint256 hdd, uint256 bandwidth) =
             dbcAIContract.machineBandWidthInfos(machineId);
+
+        uint256 locked = machineId2LockedRewardDetail[machineId].totalAmount - machineId2LockedRewardDetail[machineId].claimedAmount;
 
         MachineInfoForDBCScan memory machineInfo = MachineInfoForDBCScan({
             isStaking: _isStaking,
@@ -954,10 +1006,12 @@ contract BandWidthStaking is
             bandwidth: bandwidth,
             mem: machineMem,
             projectName: PROJECT_NAME,
-            totalRewardAmount: totalRewardAmount,
-            lockedRewardAmount: lockedAmount,
-            claimedRewardAmount: claimedAmount
+            totalRewardAmount: locked + claimedAmount,
+            lockedRewardAmount: locked,
+            claimedRewardAmount: claimedAmount,
+            canClaimRewardAmount: canClaimAmount
         });
+
         return machineInfo;
     }
 

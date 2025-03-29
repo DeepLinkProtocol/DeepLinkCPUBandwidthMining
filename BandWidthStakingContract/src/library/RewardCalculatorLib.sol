@@ -46,26 +46,32 @@ library RewardCalculatorLib {
         return rewardsPerTokenOut;
     }
 
-    function getUpdateUserRewards(
-        UserRewards memory userRewardsIn,
-        uint256 userShares,
+    function getUpdateMachineRewards(
+        UserRewards memory machineRewardsIn,
+        uint256 machineShares,
         RewardsPerShare memory rewardsPerToken_
     ) internal pure returns (UserRewards memory) {
-        if (userRewardsIn.lastAccumulatedPerShare == rewardsPerToken_.lastUpdated) return userRewardsIn;
+        if (machineRewardsIn.lastAccumulatedPerShare == rewardsPerToken_.lastUpdated) return machineRewardsIn;
 
-        userRewardsIn.accumulated += calculatePendingUserRewards(
-            userShares, userRewardsIn.lastAccumulatedPerShare, rewardsPerToken_.accumulatedPerShare
+        machineRewardsIn.accumulated += calculatePendingMachineRewards(
+            machineShares, rewardsPerToken_.accumulatedPerShare,machineRewardsIn.lastAccumulatedPerShare
         );
-        userRewardsIn.lastAccumulatedPerShare = rewardsPerToken_.accumulatedPerShare;
+        machineRewardsIn.lastAccumulatedPerShare = rewardsPerToken_.accumulatedPerShare;
 
-        return userRewardsIn;
+        return machineRewardsIn;
     }
 
-    function calculatePendingUserRewards(
+    function calculatePendingMachineRewards(
         uint256 userShares,
-        uint256 earlierAccumulatedPerShare,
-        uint256 latterAccumulatedPerShare
+        uint256 latterAccumulatedPerShare,
+        uint256 earlierAccumulatedPerShare
     ) internal pure returns (uint256) {
+        if (latterAccumulatedPerShare < earlierAccumulatedPerShare) {
+            return 0;
+        }
+        if (earlierAccumulatedPerShare == 0){
+            return 0;
+        }
         return userShares * (latterAccumulatedPerShare - earlierAccumulatedPerShare) / PRECISION_FACTOR;
     }
 }

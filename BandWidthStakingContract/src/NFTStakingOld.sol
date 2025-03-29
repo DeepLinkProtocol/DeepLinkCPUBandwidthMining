@@ -15,15 +15,16 @@ import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/U
 import "@openzeppelin/contracts/utils/math/Math.sol";
 import "./library/RewardCalculatorLib.sol";
 import {RewardCalculator} from "./RewardCalculater.sol";
+import "./OldRewardCalculater.sol";
 
 /// @custom:oz-upgrades-from OldBandWidthStaking
 contract OldBandWidthStaking is
-RewardCalculator,
-Initializable,
-ReentrancyGuardUpgradeable,
-OwnableUpgradeable,
-UUPSUpgradeable,
-IERC1155Receiver
+    OldRewardCalculator,
+    Initializable,
+    ReentrancyGuardUpgradeable,
+    OwnableUpgradeable,
+    UUPSUpgradeable,
+    IERC1155Receiver
 {
     string public constant PROJECT_NAME = "DeepLink BandWidth";
     uint8 public constant SECONDS_PER_BLOCK = 6;
@@ -252,61 +253,61 @@ IERC1155Receiver
     function setRegions() internal {
         totalRegionValue = 547000;
         regions = [
-                    "North China",
-                    "Northeast China",
-                    "East China",
-                    "Central China",
-                    "South China",
-                    "Southwest China",
-                    "Northwest China",
-                    "Taiwan, China",
-                    "Hong Kong, China",
-                    "Uttar Pradesh",
-                    "Maharashtra",
-                    "Bihar",
-                    "Indonesia",
-                    "Pakistan",
-                    "Bangladesh",
-                    "Japan",
-                    "Philippines",
-                    "Vietnam",
-                    "Turkey",
-                    "Thailand",
-                    "South Korea",
-                    "Malaysia",
-                    "Saudi Arabia",
-                    "United Arab Emirates",
-                    "California",
-                    "Texas",
-                    "Florida",
-                    "New York",
-                    "Pennsylvania",
-                    "Illinois",
-                    "Ohio",
-                    "Georgia",
-                    "Michigan",
-                    "North Carolina",
-                    "Other Regions of the USA",
-                    "Mexico",
-                    "Canada",
-                    "Brazil",
-                    "Colombia",
-                    "Argentina",
-                    "Moscow",
-                    "Saint Petersburg",
-                    "Other parts of Russia",
-                    "Germany",
-                    "United Kingdom",
-                    "France",
-                    "Italy",
-                    "Spain",
-                    "Netherlands",
-                    "Switzerland",
-                    "Nigeria",
-                    "Egypt",
-                    "South Africa",
-                    "Australia"
-            ];
+            "North China",
+            "Northeast China",
+            "East China",
+            "Central China",
+            "South China",
+            "Southwest China",
+            "Northwest China",
+            "Taiwan, China",
+            "Hong Kong, China",
+            "Uttar Pradesh",
+            "Maharashtra",
+            "Bihar",
+            "Indonesia",
+            "Pakistan",
+            "Bangladesh",
+            "Japan",
+            "Philippines",
+            "Vietnam",
+            "Turkey",
+            "Thailand",
+            "South Korea",
+            "Malaysia",
+            "Saudi Arabia",
+            "United Arab Emirates",
+            "California",
+            "Texas",
+            "Florida",
+            "New York",
+            "Pennsylvania",
+            "Illinois",
+            "Ohio",
+            "Georgia",
+            "Michigan",
+            "North Carolina",
+            "Other Regions of the USA",
+            "Mexico",
+            "Canada",
+            "Brazil",
+            "Colombia",
+            "Argentina",
+            "Moscow",
+            "Saint Petersburg",
+            "Other parts of Russia",
+            "Germany",
+            "United Kingdom",
+            "France",
+            "Italy",
+            "Spain",
+            "Netherlands",
+            "Switzerland",
+            "Nigeria",
+            "Egypt",
+            "South Africa",
+            "Australia"
+        ];
 
         // 289000
         region2Value["North China"] = 50000;
@@ -393,9 +394,9 @@ IERC1155Receiver
             RegionStakeInfo memory info = region2StakeInfo[region];
             uint256 duration = block.timestamp - lastBurnTime;
             if (info.stakedMachineCount == 0 && block.timestamp >= info.lastUnStakeTime + duration) {
-                uint256 regionValue = region2Value[region];
-                uint256 dailyRegionRewardAmount = getDailyRewardAmount() * regionValue / totalRegionValue;
-                durationInactiveReward += (duration * dailyRegionRewardAmount / 1 days);
+//                uint256 regionValue = region2Value[region];
+//                uint256 dailyRegionRewardAmount = getDailyRewardAmount() * regionValue / totalRegionValue;
+//                durationInactiveReward += (duration * dailyRegionRewardAmount / 1 days);
             }
         }
         return durationInactiveReward;
@@ -498,12 +499,12 @@ IERC1155Receiver
         require(calcPoint >= 10, "machine calc point not found");
         require(cpuCores >= 1, "machine cpu cores not found");
         require(machineMem >= 2, "machine memory not enough");
-        require(hdd >= 50, "machine hdd not enough");
+        require(hdd >= 30, "machine hdd not enough");
         require(machineOwner == stakeholder, "machine owner not match");
 
-//        (bool isOnline, bool isRegistered) = dbcAIContract.getMachineState(machineId, PROJECT_NAME, STAKING_TYPE);
-//        require(isOnline && isRegistered, "machine not online or not registered");
-        require(getDailyRewardAmount() > 0, "daily reward amount used out");
+        //        (bool isOnline, bool isRegistered) = dbcAIContract.getMachineState(machineId, PROJECT_NAME, STAKING_TYPE);
+        //        require(isOnline && isRegistered, "machine not online or not registered");
+//        require(getDailyRewardAmount() > 0, "daily reward amount used out");
         require(!isStaking(machineId), "machine already staked");
         require(nftTokenIds.length > 0, "nft token ids is empty");
         uint256 nftCount = getNFTCount(nftTokenIdBalances);
@@ -532,13 +533,15 @@ IERC1155Receiver
             originCalcPoint: bandwidth
         });
 
+        //        machineId2StakeUnitRewards[machineId].lastAccumulatedPerShare = rewardsPerCalcPoint.accumulatedPerShare;
+
         _joinStaking(machineId, calcPoint, 0);
         _tryInitMachineLockRewardInfo(machineId, currentTime);
 
         holder2MachineIds[stakeholder].push(machineId);
         RegionStakeInfo storage regionStakeInfo = region2StakeInfo[region];
         regionStakeInfo.stakedMachineCount += 1;
-//        dbcAIContract.reportStakingStatus(PROJECT_NAME, StakingType.Free, machineId, 1, true);
+        //        dbcAIContract.reportStakingStatus(PROJECT_NAME, StakingType.Free, machineId, 1, true);
         emit Staked(stakeholder, machineId, originCalcPoint, calcPoint);
     }
 
@@ -556,9 +559,9 @@ IERC1155Receiver
     }
 
     function getRewardInfo(string memory machineId)
-    public
-    view
-    returns (uint256 newRewardAmount, uint256 canClaimAmount, uint256 lockedAmount, uint256 claimedAmount)
+        public
+        view
+        returns (uint256 newRewardAmount, uint256 canClaimAmount, uint256 lockedAmount, uint256 claimedAmount)
     {
         StakeInfo storage stakeInfo = machineId2StakeInfos[machineId];
 
@@ -587,7 +590,7 @@ IERC1155Receiver
         StakeInfo storage stakeInfo = machineId2StakeInfos[machineId];
 
         uint256 machineShares = _getMachineShares(stakeInfo.calcPoint, stakeInfo.reservedAmount);
-        _updateMachineRewards(machineId, machineShares, 0, totalDistributedRewardAmount, totalBurnedRewardAmount);
+        _updateMachineRewards(machineId, machineShares, totalDistributedRewardAmount, totalBurnedRewardAmount);
 
         address stakeholder = stakeInfo.holder;
 
@@ -609,7 +612,7 @@ IERC1155Receiver
         if (canClaimAmount > 0 && (_isStaking || slashed)) {
             if (stakeInfo.reservedAmount < BASE_RESERVE_AMOUNT) {
                 (uint256 _moveToReserveAmount, uint256 leftAmountCanClaim) =
-                                tryMoveReserve(machineId, canClaimAmount, stakeInfo);
+                    tryMoveReserve(machineId, canClaimAmount, stakeInfo);
                 canClaimAmount = leftAmountCanClaim;
                 moveToReserveAmount = _moveToReserveAmount;
             }
@@ -625,7 +628,7 @@ IERC1155Receiver
 
         if (stakeInfo.reservedAmount < BASE_RESERVE_AMOUNT && _isStaking) {
             (uint256 _moveToReserveAmount, uint256 leftAmountCanClaim) =
-                            tryMoveReserve(machineId, canClaimAmount, stakeInfo);
+                tryMoveReserve(machineId, canClaimAmount, stakeInfo);
             canClaimAmount = leftAmountCanClaim;
             moveToReserveAmount = _moveToReserveAmount;
         }
@@ -656,14 +659,14 @@ IERC1155Receiver
     }
 
     function getAllRewardInfo(address holder)
-    external
-    view
-    returns (uint256 availableRewardAmount, uint256 canClaimAmount, uint256 lockedAmount, uint256 claimedAmount)
+        external
+        view
+        returns (uint256 availableRewardAmount, uint256 canClaimAmount, uint256 lockedAmount, uint256 claimedAmount)
     {
         string[] memory machineIds = holder2MachineIds[holder];
         for (uint256 i = 0; i < machineIds.length; i++) {
             (uint256 _availableRewardAmount, uint256 _canClaimAmount, uint256 _lockedAmount, uint256 _claimedAmount) =
-                            getRewardInfo(machineIds[i]);
+                getRewardInfo(machineIds[i]);
             availableRewardAmount += _availableRewardAmount;
             canClaimAmount += _canClaimAmount;
             lockedAmount += _lockedAmount;
@@ -692,8 +695,8 @@ IERC1155Receiver
     }
 
     function tryMoveReserve(string memory machineId, uint256 canClaimAmount, StakeInfo storage stakeInfo)
-    internal
-    returns (uint256 moveToReserveAmount, uint256 leftAmountCanClaim)
+        internal
+        returns (uint256 moveToReserveAmount, uint256 leftAmountCanClaim)
     {
         uint256 leftAmountShouldReserve = BASE_RESERVE_AMOUNT - stakeInfo.reservedAmount;
         if (canClaimAmount >= leftAmountShouldReserve) {
@@ -720,8 +723,8 @@ IERC1155Receiver
         require(stakeInfo.startAtTimestamp > 0, "staking not found");
         require(!stakeInfo.isRentedByUser, "machine rented by user");
         //        require(block.timestamp >= stakeInfo.endAtTimestamp, "staking not ended"); todo
-//        (, bool isRegistered) = dbcAIContract.getMachineState(machineId, PROJECT_NAME, STAKING_TYPE);
-//        require(!isRegistered, "machine still registered");
+        //        (, bool isRegistered) = dbcAIContract.getMachineState(machineId, PROJECT_NAME, STAKING_TYPE);
+        //        require(!isRegistered, "machine still registered");
         _claim(machineId);
         _unStake(machineId, stakeInfo.holder);
     }
@@ -750,7 +753,7 @@ IERC1155Receiver
         RegionStakeInfo storage regionStakeInfo = region2StakeInfo[region];
         regionStakeInfo.lastUnStakeTime = block.timestamp;
         regionStakeInfo.stakedMachineCount -= Math.min(regionStakeInfo.stakedMachineCount, 1);
-//        dbcAIContract.reportStakingStatus(PROJECT_NAME, StakingType.Free, machineId, 1, false);
+        //        dbcAIContract.reportStakingStatus(PROJECT_NAME, StakingType.Free, machineId, 1, false);
         emit Unstaked(stakeholder, machineId, reservedAmount);
     }
 
@@ -807,15 +810,15 @@ IERC1155Receiver
         emit PaySlash(machineId, slashToPayAddress, BASE_RESERVE_AMOUNT);
     }
 
-    function getDailyRewardAmount() public view returns (uint256) {
-        return RewardCalculator._getDailyRewardAmount(totalDistributedRewardAmount, totalBurnedRewardAmount);
-    }
+//    function getDailyRewardAmount() public view returns (uint256) {
+//        return OldRewardCalculator._getDailyRewardAmount(totalDistributedRewardAmount, totalBurnedRewardAmount);
+//    }
 
-    function _updateRewardPerCalcPoint() internal {
-        uint256 accumulatedPerShareBefore = rewardsPerCalcPoint.accumulatedPerShare;
-        rewardsPerCalcPoint = _getUpdatedRewardPerCalcPoint(0, totalDistributedRewardAmount, totalBurnedRewardAmount);
-        emit RewardsPerCalcPointUpdate(accumulatedPerShareBefore, rewardsPerCalcPoint.accumulatedPerShare);
-    }
+    //    function _updateRewardPerCalcPoint() internal {
+    //        uint256 accumulatedPerShareBefore = rewardsPerCalcPoint.accumulatedPerShare;
+    //        rewardsPerCalcPoint = _getUpdatedRewardPerCalcPoint(totalDistributedRewardAmount, totalBurnedRewardAmount);
+    //        emit RewardsPerCalcPointUpdate(accumulatedPerShareBefore, rewardsPerCalcPoint.accumulatedPerShare);
+    //    }
 
     function _getMachineShares(uint256 calcPoint, uint256 reservedAmount) internal pure returns (uint256) {
         return
@@ -832,19 +835,22 @@ IERC1155Receiver
         uint256 machineShares = stakeInfo.calcPoint * oldLnReserved;
 
         uint256 newLnReserved =
-                            ToolLib.LnUint256(reserveAmount > BASE_RESERVE_AMOUNT ? reserveAmount : BASE_RESERVE_AMOUNT);
+            ToolLib.LnUint256(reserveAmount > BASE_RESERVE_AMOUNT ? reserveAmount : BASE_RESERVE_AMOUNT);
 
         totalAdjustUnit -= stakeInfo.calcPoint * oldLnReserved;
         totalAdjustUnit += calcPoint * newLnReserved;
 
+        region2totalAdjustUnit[stakeInfo.region] -= stakeInfo.calcPoint * oldLnReserved;
+        region2totalAdjustUnit[stakeInfo.region] += calcPoint * newLnReserved;
+
         // update machine rewards
-        _updateMachineRewards(machineId, machineShares, 0, totalDistributedRewardAmount, totalBurnedRewardAmount);
+        _updateMachineRewards(machineId, machineShares, totalDistributedRewardAmount, totalBurnedRewardAmount);
 
         totalCalcPoint = totalCalcPoint - stakeInfo.calcPoint + calcPoint;
 
         stakeInfo.calcPoint = calcPoint;
         if (reserveAmount > stakeInfo.reservedAmount) {
-            rewardToken.transferFrom(stakeInfo.holder, address(this), reserveAmount);
+            rewardToken.transferFrom(stakeInfo.holder, address(this), reserveAmount - stakeInfo.reservedAmount);
         }
         if (reserveAmount != stakeInfo.reservedAmount) {
             totalReservedAmount = totalReservedAmount + reserveAmount - stakeInfo.reservedAmount;
@@ -858,12 +864,12 @@ IERC1155Receiver
             return 0;
         }
         uint256 machineShares = _getMachineShares(stakeInfo.calcPoint, stakeInfo.reservedAmount);
-
+        uint256 totalShares = region2totalAdjustUnit[stakeInfo.region];
         RewardCalculatorLib.UserRewards memory machineRewards = machineId2StakeUnitRewards[machineId];
 
         RewardCalculatorLib.RewardsPerShare memory currentRewardPerCalcPoint =
-                        _getUpdatedRewardPerCalcPoint(0, totalDistributedRewardAmount, totalBurnedRewardAmount);
-        uint256 rewardAmount = RewardCalculatorLib.calculatePendingUserRewards(
+            _getUpdatedRewardPerCalcPoint(totalDistributedRewardAmount, totalBurnedRewardAmount, totalShares);
+        uint256 rewardAmount = RewardCalculatorLib.calculatePendingMachineRewards(
             machineShares, machineRewards.lastAccumulatedPerShare, currentRewardPerCalcPoint.accumulatedPerShare
         );
 
@@ -892,9 +898,9 @@ IERC1155Receiver
     }
 
     function newSlashInfo(address slasher, string memory machineId, uint256 slashAmount)
-    internal
-    view
-    returns (SlashInfo memory)
+        internal
+        view
+        returns (SlashInfo memory)
     {
         SlashInfo memory slashInfo = SlashInfo({
             stakeHolder: slasher,
@@ -944,7 +950,7 @@ IERC1155Receiver
         uint256 totalRewardAmount = canClaimAmount + lockedAmount + claimedAmount;
         bool _isStaking = isStaking(machineId);
         (,, uint256 cpuCores, uint256 machineMem, string memory region, uint256 hdd, uint256 bandwidth) =
-                            dbcAIContract.machineBandWidthInfos(machineId);
+            dbcAIContract.machineBandWidthInfos(machineId);
 
         MachineInfoForDBCScan memory machineInfo = MachineInfoForDBCScan({
             isStaking: _isStaking,

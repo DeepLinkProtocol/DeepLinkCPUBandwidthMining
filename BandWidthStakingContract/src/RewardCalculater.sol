@@ -28,6 +28,8 @@ contract RewardCalculator {
     mapping(string => LockedRewardDetail) public machineId2LockedRewardDetail;
 
     mapping(string => RewardCalculatorLib.UserRewards) public machineId2StakeUnitRewards;
+    mapping(string => uint256) public region2totalAdjustUnit;
+    mapping(string => RewardCalculatorLib.RewardsPerShare) public region2RewardPerCalcPoint;
 
     event RewardsPerCalcPointUpdate(uint256 accumulatedPerShareBefore, uint256 accumulatedPerShareAfter);
 
@@ -64,36 +66,56 @@ contract RewardCalculator {
         return (releaseAmount, lockedRewardDetail.totalAmount - releaseAmount);
     }
 
-    function _updateRewardPerCalcPoint(
-        uint256 rewardDuration,
-        uint256 totalDistributedRewardAmount,
-        uint256 totalBurnedRewardAmount
-    ) internal {
-        uint256 accumulatedPerShareBefore = rewardsPerCalcPoint.accumulatedPerShare;
-        rewardsPerCalcPoint =
-            _getUpdatedRewardPerCalcPoint(rewardDuration, totalDistributedRewardAmount, totalBurnedRewardAmount);
-        emit RewardsPerCalcPointUpdate(accumulatedPerShareBefore, rewardsPerCalcPoint.accumulatedPerShare);
+//    function _updateRewardPerCalcPoint(
+//        uint256 totalDistributedRewardAmount,
+//        uint256 totalBurnedRewardAmount,
+//        uint256 totalShare
+//    ) internal {
+//        uint256 accumulatedPerShareBefore = rewardsPerCalcPoint.accumulatedPerShare;
+//        rewardsPerCalcPoint =
+//            _getUpdatedRewardPerCalcPoint(totalDistributedRewardAmount, totalBurnedRewardAmount, totalShare);
+//        emit RewardsPerCalcPointUpdate(accumulatedPerShareBefore, rewardsPerCalcPoint.accumulatedPerShare);
+//    }
+
+    function _updateRegionRewardPerCalcPoint(string memory region, uint256 regionRewardsPerSeconds) internal {
+        uint256 regionTotalShare = region2totalAdjustUnit[region];
+        uint256 accumulatedPerShareBefore = region2RewardPerCalcPoint[region].accumulatedPerShare;
+        region2RewardPerCalcPoint[region] = _getUpdatedRegionRewardPerCalcPoint(regionTotalShare, regionRewardsPerSeconds,region);
+        emit RewardsPerCalcPointUpdate(accumulatedPerShareBefore, region2RewardPerCalcPoint[region].accumulatedPerShare);
     }
 
-    function _getUpdatedRewardPerCalcPoint(
-        uint256 rewardDuration,
-        uint256 totalDistributedRewardAmount,
-        uint256 totalBurnedRewardAmount
-    ) internal view returns (RewardCalculatorLib.RewardsPerShare memory) {
-        uint256 rewardsPerSeconds =
-            (_getDailyRewardAmount(totalDistributedRewardAmount, totalBurnedRewardAmount)) / 1 days;
+//    function _getUpdatedRewardPerCalcPoint(
+//        uint256 totalDistributedRewardAmount,
+//        uint256 totalBurnedRewardAmount,
+//        uint256 totalShare
+//    ) internal view returns (RewardCalculatorLib.RewardsPerShare memory) {
+//        uint256 rewardsPerSeconds =
+//            (_getDailyRewardAmount(totalDistributedRewardAmount, totalBurnedRewardAmount)) / 1 days;
+//        if (rewardStartAtTimestamp == 0) {
+//            return RewardCalculatorLib.RewardsPerShare(0, 0);
+//        }
+//
+//        uint256 rewardEndAt = 0;
+//        RewardCalculatorLib.RewardsPerShare memory rewardsPerTokenUpdated = RewardCalculatorLib.getUpdateRewardsPerShare(
+//            rewardsPerCalcPoint, totalShare, rewardsPerSeconds, rewardStartAtTimestamp, rewardEndAt
+//        );
+//        return rewardsPerTokenUpdated;
+//    }
+
+    function _getUpdatedRegionRewardPerCalcPoint(uint256 regionTotalShare, uint256 regionRewardsPerSeconds,string memory region)
+        internal
+        view
+        returns (RewardCalculatorLib.RewardsPerShare memory)
+    {
         if (rewardStartAtTimestamp == 0) {
             return RewardCalculatorLib.RewardsPerShare(0, 0);
         }
-        //        uint256 rewardEndAt = Math.min(rewardStartAtTimestamp + REWARD_DURATION, stakeEndAtTimestamp);
-        //        uint256 rewardEndAt = rewardStartAtTimestamp + rewardDuration;
-        uint256 rewardEndAt = rewardStartAtTimestamp + rewardDuration;
-        if (rewardDuration == 0) {
-            rewardEndAt = 0;
-        }
 
+        RewardCalculatorLib.RewardsPerShare memory regionRewardPerCalcPoint = region2RewardPerCalcPoint[region];
+
+        uint256 rewardEndAt = 0;
         RewardCalculatorLib.RewardsPerShare memory rewardsPerTokenUpdated = RewardCalculatorLib.getUpdateRewardsPerShare(
-            rewardsPerCalcPoint, totalAdjustUnit, rewardsPerSeconds, rewardStartAtTimestamp, rewardEndAt
+            regionRewardPerCalcPoint, regionTotalShare, regionRewardsPerSeconds, rewardStartAtTimestamp, rewardEndAt
         );
         return rewardsPerTokenUpdated;
     }
@@ -122,20 +144,44 @@ contract RewardCalculator {
         return dailyReward;
     }
 
-    function _updateMachineRewards(
+    function _updateMachineRewardsOfRegion(
         string memory machineId,
         uint256 machineShares,
-        uint256 rewardDuration,
-        uint256 totalDistributedRewardAmount,
-        uint256 totalBurnedRewardAmount
+        string memory region,
+        uint256 regionRewardsPerSeconds
     ) internal {
-        _updateRewardPerCalcPoint(rewardDuration, totalDistributedRewardAmount, totalBurnedRewardAmount);
+        _updateRegionRewardPerCalcPoint(region, regionRewardsPerSeconds);
+        RewardCalculatorLib.UserRewards storage machineRewards = machineId2StakeUnitRewards[machineId];
+        if (machineRewards.lastAccumulatedPerShare == 0) {
+            machineRewards.lastAccumulatedPerShare = region2RewardPerCalcPoint[region].accumulatedPerShare;
+        }
 
-        RewardCalculatorLib.UserRewards memory machineRewards = machineId2StakeUnitRewards[machineId];
+        RewardCalculatorLib.RewardsPerShare memory regionRewardsPerCalcPoint = region2RewardPerCalcPoint[region];
+        if (regionRewardsPerCalcPoint.lastUpdated == 0) {
+            regionRewardsPerCalcPoint.lastUpdated = block.timestamp;
+        }
         RewardCalculatorLib.UserRewards memory machineRewardsUpdated =
-            RewardCalculatorLib.getUpdateUserRewards(machineRewards, machineShares, rewardsPerCalcPoint);
+            RewardCalculatorLib.getUpdateMachineRewards(machineRewards, machineShares, regionRewardsPerCalcPoint);
         machineId2StakeUnitRewards[machineId] = machineRewardsUpdated;
     }
+
+//    function _updateMachineRewards(
+//        string memory machineId,
+//        uint256 machineShares,
+//        uint256 totalDistributedRewardAmount,
+//        uint256 totalBurnedRewardAmount
+//    ) internal {
+//        uint256 totalShare = region2totalAdjustUnit[machineId];
+//        _updateRewardPerCalcPoint(totalDistributedRewardAmount, totalBurnedRewardAmount, totalShare);
+//
+//        RewardCalculatorLib.UserRewards memory machineRewards = machineId2StakeUnitRewards[machineId];
+//        if (machineRewards.lastAccumulatedPerShare == 0) {
+//            machineRewards.lastAccumulatedPerShare = rewardsPerCalcPoint.accumulatedPerShare;
+//        }
+//        RewardCalculatorLib.UserRewards memory machineRewardsUpdated =
+//            RewardCalculatorLib.getUpdateMachineRewards(machineRewards, machineShares, rewardsPerCalcPoint);
+//        machineId2StakeUnitRewards[machineId] = machineRewardsUpdated;
+//    }
 
     function calculateReleaseRewardAndUpdate(string memory machineId)
         internal

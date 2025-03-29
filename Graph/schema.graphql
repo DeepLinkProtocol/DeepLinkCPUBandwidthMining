@@ -3,22 +3,22 @@ type StateSummary @entity {
   totalGPUCount: BigInt! # uint256
   totalStakingGPUCount: BigInt! # uint256
   totalCalcPointPoolCount: BigInt! # uint256
-  totalRentedGPUCount: BigInt! # uint256
-  totalBurnedRentFee: BigInt! # uint256
+  totalBurnedReward: BigInt! # uint256
   totalReservedAmount: BigInt! # uint256
   totalCalcPoint: BigInt! # uint256
+  totalRegionCount: BigInt! # uint256
 }
+
+
 
 type StakeHolder @entity {
   id: Bytes!
   holder: Bytes! # address
   totalCalcPoint: BigInt! # uint256
   fullTotalCalcPoint: BigInt! # uint256
-  totalGPUCount: BigInt! # uint256
+  machineCount: BigInt! # uint256
   totalStakingGPUCount: BigInt! # uint256
-  rentedGPUCount: BigInt! # uint256
   totalReservedAmount: BigInt! # uint256
-  burnedRentFee: BigInt! # uint256
   totalClaimedRewardAmount: BigInt! # uint256
   totalReleasedRewardAmount: BigInt! # uint256
   blockNumber: BigInt!
@@ -29,23 +29,31 @@ type StakeHolder @entity {
 
 type MachineInfo @entity {
   id: Bytes!
-  holder: Bytes! # address
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
   holderRef: StakeHolder! @belongsTo(field: "holder")  # ‌:ml-citation{ref="1,2" data="citationList"}
+  regionRef: RegionInfo! @belongsTo(field: "region")  # ‌:ml-citation{ref="1,2" data="citationList"}
+
+  holder: Bytes! # address
   machineId: String!
   totalCalcPoint: BigInt! # uint256
   totalCalcPointWithNFT: BigInt! # uint256
   fullTotalCalcPoint: BigInt! # uint256
-  totalGPUCount: BigInt! # uint256
-  rentedGPUCount: BigInt! # uint256
   totalReservedAmount: BigInt! # uint256
-  burnedRentFee: BigInt! # uint256
-  blockNumber: BigInt!
-  blockTimestamp: BigInt!
-  transactionHash: Bytes!
-  isRented : Boolean!
   isStaking: Boolean!
   online: Boolean!
   registered: Boolean!
-  gpuType: String!
+  region: String!
+  totalClaimedRewardAmount: BigInt! # uint256
+  totalReleasedRewardAmount: BigInt! # uint256
+}
+
+type RegionInfo @entity {
+  id: Bytes!
+  region: String!
+  totalMachineCount: BigInt! # uint256
+  stakingMachineCount: BigInt! # uint256
+  machineInfos: [MachineInfo!]! @derivedFrom(field: "regionRef")
 }
 

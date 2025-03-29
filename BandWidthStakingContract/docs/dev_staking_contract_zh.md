@@ -1,7 +1,7 @@
 NFTStaking 合约接口文档
 ================
 
-# 合约地址(测试网)：0x4a62db53eff93bdf9cbd6b17711bb0e29b020d8c
+# 合约地址(测试网)：0xFAd3525f0a0bcC9AE57db1Ae6c260bfE710dE5C5
 
 ## 描述
 NFTStaking 合约是用于管理 NFT 质押的智能合约。它提供了多种功能，包括质押、解质押、领取奖励等。

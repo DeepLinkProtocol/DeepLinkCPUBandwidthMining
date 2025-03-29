@@ -1,5 +1,5 @@
-import { newMockEvent } from "matchstick-as"
-import { ethereum, Address, BigInt } from "@graphprotocol/graph-ts"
+import { newMockEvent } from 'matchstick-as';
+import { ethereum, Address, BigInt } from '@graphprotocol/graph-ts';
 import {
   AddedStakeHours,
   Claimed,
@@ -13,35 +13,35 @@ import {
   RewardsPerCalcPointUpdate,
   Staked,
   Unstaked,
-  Upgraded
-} from "../generated/NFTStaking/NFTStaking"
+  Upgraded,
+} from '../generated/NFTStaking/NFTStaking';
 
 export function createAddedStakeHoursEvent(
   stakeholder: Address,
   machineId: string,
   stakeHours: BigInt
 ): AddedStakeHours {
-  let addedStakeHoursEvent = changetype<AddedStakeHours>(newMockEvent())
+  let addedStakeHoursEvent = changetype<AddedStakeHours>(newMockEvent());
 
-  addedStakeHoursEvent.parameters = new Array()
+  addedStakeHoursEvent.parameters = new Array();
 
   addedStakeHoursEvent.parameters.push(
     new ethereum.EventParam(
-      "stakeholder",
+      'stakeholder',
       ethereum.Value.fromAddress(stakeholder)
     )
-  )
+  );
   addedStakeHoursEvent.parameters.push(
-    new ethereum.EventParam("machineId", ethereum.Value.fromString(machineId))
-  )
+    new ethereum.EventParam('machineId', ethereum.Value.fromString(machineId))
+  );
   addedStakeHoursEvent.parameters.push(
     new ethereum.EventParam(
-      "stakeHours",
+      'stakeHours',
       ethereum.Value.fromUnsignedBigInt(stakeHours)
     )
-  )
+  );
 
-  return addedStakeHoursEvent
+  return addedStakeHoursEvent;
 }
 
 export function createClaimedEvent(
@@ -52,78 +52,78 @@ export function createClaimedEvent(
   moveToReservedAmount: BigInt,
   paidSlash: boolean
 ): Claimed {
-  let claimedEvent = changetype<Claimed>(newMockEvent())
+  let claimedEvent = changetype<Claimed>(newMockEvent());
 
-  claimedEvent.parameters = new Array()
+  claimedEvent.parameters = new Array();
 
   claimedEvent.parameters.push(
     new ethereum.EventParam(
-      "stakeholder",
+      'stakeholder',
       ethereum.Value.fromAddress(stakeholder)
     )
-  )
+  );
   claimedEvent.parameters.push(
-    new ethereum.EventParam("machineId", ethereum.Value.fromString(machineId))
-  )
+    new ethereum.EventParam('machineId', ethereum.Value.fromString(machineId))
+  );
   claimedEvent.parameters.push(
     new ethereum.EventParam(
-      "totalRewardAmount",
+      'totalRewardAmount',
       ethereum.Value.fromUnsignedBigInt(totalRewardAmount)
     )
-  )
+  );
   claimedEvent.parameters.push(
     new ethereum.EventParam(
-      "moveToUserWalletAmount",
+      'moveToUserWalletAmount',
       ethereum.Value.fromUnsignedBigInt(moveToUserWalletAmount)
     )
-  )
+  );
   claimedEvent.parameters.push(
     new ethereum.EventParam(
-      "moveToReservedAmount",
+      'moveToReservedAmount',
       ethereum.Value.fromUnsignedBigInt(moveToReservedAmount)
     )
-  )
+  );
   claimedEvent.parameters.push(
-    new ethereum.EventParam("paidSlash", ethereum.Value.fromBoolean(paidSlash))
-  )
+    new ethereum.EventParam('paidSlash', ethereum.Value.fromBoolean(paidSlash))
+  );
 
-  return claimedEvent
+  return claimedEvent;
 }
 
 export function createEndRentMachineEvent(
   machineOwner: Address,
   machineId: string
 ): EndRentMachine {
-  let endRentMachineEvent = changetype<EndRentMachine>(newMockEvent())
+  let endRentMachineEvent = changetype<EndRentMachine>(newMockEvent());
 
-  endRentMachineEvent.parameters = new Array()
+  endRentMachineEvent.parameters = new Array();
 
   endRentMachineEvent.parameters.push(
     new ethereum.EventParam(
-      "machineOwner",
+      'machineOwner',
       ethereum.Value.fromAddress(machineOwner)
     )
-  )
+  );
   endRentMachineEvent.parameters.push(
-    new ethereum.EventParam("machineId", ethereum.Value.fromString(machineId))
-  )
+    new ethereum.EventParam('machineId', ethereum.Value.fromString(machineId))
+  );
 
-  return endRentMachineEvent
+  return endRentMachineEvent;
 }
 
 export function createInitializedEvent(version: BigInt): Initialized {
-  let initializedEvent = changetype<Initialized>(newMockEvent())
+  let initializedEvent = changetype<Initialized>(newMockEvent());
 
-  initializedEvent.parameters = new Array()
+  initializedEvent.parameters = new Array();
 
   initializedEvent.parameters.push(
     new ethereum.EventParam(
-      "version",
+      'version',
       ethereum.Value.fromUnsignedBigInt(version)
     )
-  )
+  );
 
-  return initializedEvent
+  return initializedEvent;
 }
 
 export function createOwnershipTransferredEvent(
@@ -131,21 +131,21 @@ export function createOwnershipTransferredEvent(
   newOwner: Address
 ): OwnershipTransferred {
   let ownershipTransferredEvent =
-    changetype<OwnershipTransferred>(newMockEvent())
+    changetype<OwnershipTransferred>(newMockEvent());
 
-  ownershipTransferredEvent.parameters = new Array()
+  ownershipTransferredEvent.parameters = new Array();
 
   ownershipTransferredEvent.parameters.push(
     new ethereum.EventParam(
-      "previousOwner",
+      'previousOwner',
       ethereum.Value.fromAddress(previousOwner)
     )
-  )
+  );
   ownershipTransferredEvent.parameters.push(
-    new ethereum.EventParam("newOwner", ethereum.Value.fromAddress(newOwner))
-  )
+    new ethereum.EventParam('newOwner', ethereum.Value.fromAddress(newOwner))
+  );
 
-  return ownershipTransferredEvent
+  return ownershipTransferredEvent;
 }
 
 export function createPaySlashEvent(
@@ -153,81 +153,81 @@ export function createPaySlashEvent(
   renter: Address,
   slashAmount: BigInt
 ): PaySlash {
-  let paySlashEvent = changetype<PaySlash>(newMockEvent())
+  let paySlashEvent = changetype<PaySlash>(newMockEvent());
 
-  paySlashEvent.parameters = new Array()
+  paySlashEvent.parameters = new Array();
 
   paySlashEvent.parameters.push(
-    new ethereum.EventParam("machineId", ethereum.Value.fromString(machineId))
-  )
+    new ethereum.EventParam('machineId', ethereum.Value.fromString(machineId))
+  );
   paySlashEvent.parameters.push(
-    new ethereum.EventParam("renter", ethereum.Value.fromAddress(renter))
-  )
+    new ethereum.EventParam('renter', ethereum.Value.fromAddress(renter))
+  );
   paySlashEvent.parameters.push(
     new ethereum.EventParam(
-      "slashAmount",
+      'slashAmount',
       ethereum.Value.fromUnsignedBigInt(slashAmount)
     )
-  )
+  );
 
-  return paySlashEvent
+  return paySlashEvent;
 }
 
 export function createRentMachineEvent(
   machineOwner: Address,
   machineId: string
 ): RentMachine {
-  let rentMachineEvent = changetype<RentMachine>(newMockEvent())
+  let rentMachineEvent = changetype<RentMachine>(newMockEvent());
 
-  rentMachineEvent.parameters = new Array()
+  rentMachineEvent.parameters = new Array();
 
   rentMachineEvent.parameters.push(
     new ethereum.EventParam(
-      "machineOwner",
+      'machineOwner',
       ethereum.Value.fromAddress(machineOwner)
     )
-  )
+  );
   rentMachineEvent.parameters.push(
-    new ethereum.EventParam("machineId", ethereum.Value.fromString(machineId))
-  )
+    new ethereum.EventParam('machineId', ethereum.Value.fromString(machineId))
+  );
 
-  return rentMachineEvent
+  return rentMachineEvent;
 }
 
 export function createReportMachineFaultEvent(
   machineId: string,
   renter: Address
 ): ReportMachineFault {
-  let reportMachineFaultEvent = changetype<ReportMachineFault>(newMockEvent())
+  let reportMachineFaultEvent = changetype<ReportMachineFault>(newMockEvent());
 
-  reportMachineFaultEvent.parameters = new Array()
+  reportMachineFaultEvent.parameters = new Array();
 
   reportMachineFaultEvent.parameters.push(
-    new ethereum.EventParam("machineId", ethereum.Value.fromString(machineId))
-  )
+    new ethereum.EventParam('machineId', ethereum.Value.fromString(machineId))
+  );
   reportMachineFaultEvent.parameters.push(
-    new ethereum.EventParam("renter", ethereum.Value.fromAddress(renter))
-  )
+    new ethereum.EventParam('renter', ethereum.Value.fromAddress(renter))
+  );
 
-  return reportMachineFaultEvent
+  return reportMachineFaultEvent;
 }
 
 export function createReserveDLCEvent(
   machineId: string,
   amount: BigInt
 ): ReserveDLC {
-  let reserveDlcEvent = changetype<ReserveDLC>(newMockEvent())
+  let reserveDlcEvent = changetype<ReserveDLC>(newMockEvent());
 
-  reserveDlcEvent.parameters = new Array()
+  reserveDlcEvent.parameters = new Array();
 
   reserveDlcEvent.parameters.push(
-    new ethereum.EventParam("machineId", ethereum.Value.fromString(machineId))
-  )
+    new ethereum.EventParam('machineId', ethereum.Value.fromString(machineId))
+  );
   reserveDlcEvent.parameters.push(
-    new ethereum.EventParam("amount", ethereum.Value.fromUnsignedBigInt(amount))
-  )
+    new ethereum.EventParam('amount', ethereum.Value.fromUnsignedBigInt(amount))
+  );
 
-  return reserveDlcEvent
+  return reserveDlcEvent;
 }
 
 export function createRewardsPerCalcPointUpdateEvent(
@@ -235,24 +235,24 @@ export function createRewardsPerCalcPointUpdateEvent(
   accumulatedPerShareAfter: BigInt
 ): RewardsPerCalcPointUpdate {
   let rewardsPerCalcPointUpdateEvent =
-    changetype<RewardsPerCalcPointUpdate>(newMockEvent())
+    changetype<RewardsPerCalcPointUpdate>(newMockEvent());
 
-  rewardsPerCalcPointUpdateEvent.parameters = new Array()
+  rewardsPerCalcPointUpdateEvent.parameters = new Array();
 
   rewardsPerCalcPointUpdateEvent.parameters.push(
     new ethereum.EventParam(
-      "accumulatedPerShareBefore",
+      'accumulatedPerShareBefore',
       ethereum.Value.fromUnsignedBigInt(accumulatedPerShareBefore)
     )
-  )
+  );
   rewardsPerCalcPointUpdateEvent.parameters.push(
     new ethereum.EventParam(
-      "accumulatedPerShareAfter",
+      'accumulatedPerShareAfter',
       ethereum.Value.fromUnsignedBigInt(accumulatedPerShareAfter)
     )
-  )
+  );
 
-  return rewardsPerCalcPointUpdateEvent
+  return rewardsPerCalcPointUpdateEvent;
 }
 
 export function createStakedEvent(
@@ -261,67 +261,67 @@ export function createStakedEvent(
   calcPoint: BigInt,
   stakeSeconds: BigInt
 ): Staked {
-  let stakedEvent = changetype<Staked>(newMockEvent())
+  let stakedEvent = changetype<Staked>(newMockEvent());
 
-  stakedEvent.parameters = new Array()
+  stakedEvent.parameters = new Array();
 
   stakedEvent.parameters.push(
     new ethereum.EventParam(
-      "stakeholder",
+      'stakeholder',
       ethereum.Value.fromAddress(stakeholder)
     )
-  )
+  );
   stakedEvent.parameters.push(
-    new ethereum.EventParam("machineId", ethereum.Value.fromString(machineId))
-  )
+    new ethereum.EventParam('machineId', ethereum.Value.fromString(machineId))
+  );
   stakedEvent.parameters.push(
     new ethereum.EventParam(
-      "calcPoint",
+      'calcPoint',
       ethereum.Value.fromUnsignedBigInt(calcPoint)
     )
-  )
+  );
   stakedEvent.parameters.push(
     new ethereum.EventParam(
-      "stakeSeconds",
+      'stakeSeconds',
       ethereum.Value.fromUnsignedBigInt(stakeSeconds)
     )
-  )
+  );
 
-  return stakedEvent
+  return stakedEvent;
 }
 
 export function createUnstakedEvent(
   stakeholder: Address,
   machineId: string
 ): Unstaked {
-  let unstakedEvent = changetype<Unstaked>(newMockEvent())
+  let unstakedEvent = changetype<Unstaked>(newMockEvent());
 
-  unstakedEvent.parameters = new Array()
+  unstakedEvent.parameters = new Array();
 
   unstakedEvent.parameters.push(
     new ethereum.EventParam(
-      "stakeholder",
+      'stakeholder',
       ethereum.Value.fromAddress(stakeholder)
     )
-  )
+  );
   unstakedEvent.parameters.push(
-    new ethereum.EventParam("machineId", ethereum.Value.fromString(machineId))
-  )
+    new ethereum.EventParam('machineId', ethereum.Value.fromString(machineId))
+  );
 
-  return unstakedEvent
+  return unstakedEvent;
 }
 
 export function createUpgradedEvent(implementation: Address): Upgraded {
-  let upgradedEvent = changetype<Upgraded>(newMockEvent())
+  let upgradedEvent = changetype<Upgraded>(newMockEvent());
 
-  upgradedEvent.parameters = new Array()
+  upgradedEvent.parameters = new Array();
 
   upgradedEvent.parameters.push(
     new ethereum.EventParam(
-      "implementation",
+      'implementation',
       ethereum.Value.fromAddress(implementation)
     )
-  )
+  );
 
-  return upgradedEvent
+  return upgradedEvent;
 }

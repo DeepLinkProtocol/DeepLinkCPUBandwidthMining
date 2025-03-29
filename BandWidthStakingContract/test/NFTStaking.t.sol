@@ -117,6 +117,9 @@ contract RentTest is Test {
         uint256 totalCalcPoint = nftStaking.totalCalcPoint();
 
         assertEq(totalCalcPoint, totalCalcPointBefore + 100);
+        (uint256 accumulated,) = nftStaking.machineId2StakeUnitRewards(machineId);
+//        assertEq(accumulatedPerShare, lastAccumulatedPerShare);
+        assertEq(accumulated, 0);
     }
 
     function testStake() public {
