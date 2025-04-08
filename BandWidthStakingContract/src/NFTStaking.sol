@@ -124,7 +124,9 @@ contract BandWidthStaking is
 
     bool public paused;
 
-    event Staked(address indexed stakeholder, string machineId, uint256 originCalcPoint, uint256 calcPoint, string region);
+    event Staked(
+        address indexed stakeholder, string machineId, uint256 originCalcPoint, uint256 calcPoint, string region
+    );
 
     event ReserveDLC(string machineId, uint256 amount);
     event Unstaked(address indexed stakeholder, string machineId, uint256 paybackReserveAmount);
@@ -136,7 +138,6 @@ contract BandWidthStaking is
         uint256 moveToReservedAmount,
         bool paidSlash
     );
-
 
     //    event AddNFTs(string machineId, uint256[] nftTokenIds);
     event RentMachine(string machineId);
@@ -406,11 +407,8 @@ contract BandWidthStaking is
                 uint256 currentInactiveRegionReward = (duration * dailyRegionRewardAmount / 1 days);
                 durationInactiveReward += currentInactiveRegionReward;
                 emit BurnedInactiveSingleRegionRewards(region, currentInactiveRegionReward);
-
             }
         }
-
-      
 
         return durationInactiveReward;
     }
@@ -432,7 +430,7 @@ contract BandWidthStaking is
         require(burnAddress != address(0), "burn address not set");
         rewardToken.transfer(burnAddress, durationInactiveReward);
         lastBurnTime = block.timestamp;
-       
+
         emit BurnedInactiveRegionRewards(durationInactiveReward);
     }
 
@@ -612,7 +610,7 @@ contract BandWidthStaking is
     function getRegionRewardsPerSeconds(string memory region) public view returns (uint256) {
         uint256 regionValue = region2Value[region];
         uint256 totalRewardPerSecond = getDailyRewardAmount() / 1 days;
-        return  totalRewardPerSecond * regionValue / totalRegionValue;
+        return totalRewardPerSecond * regionValue / totalRegionValue;
     }
 
     function _claim(string memory machineId) internal {
@@ -906,7 +904,7 @@ contract BandWidthStaking is
         region2totalAdjustUnit[stakeInfo.region] += calcPoint * newLnReserved;
 
         // update machine rewards
-//        _updateMachineRewards(machineId, machineShares, totalDistributedRewardAmount, totalBurnedRewardAmount);
+        //        _updateMachineRewards(machineId, machineShares, totalDistributedRewardAmount, totalBurnedRewardAmount);
         uint256 regionRewardsPerSeconds = getRegionRewardsPerSeconds(stakeInfo.region);
         _updateMachineRewardsOfRegion(machineId, machineShares, stakeInfo.region, regionRewardsPerSeconds);
 
@@ -933,10 +931,10 @@ contract BandWidthStaking is
 
         uint256 regionRewardsPerSeconds = getRegionRewardsPerSeconds(stakeInfo.region);
         RewardCalculatorLib.RewardsPerShare memory currentRewardPerCalcPoint =
-            _getUpdatedRegionRewardPerCalcPoint(regionTotalShares, regionRewardsPerSeconds,stakeInfo.region);
+            _getUpdatedRegionRewardPerCalcPoint(regionTotalShares, regionRewardsPerSeconds, stakeInfo.region);
         //            _getUpdatedRewardPerCalcPoint(totalDistributedRewardAmount, totalBurnedRewardAmount, regionTotalShares);
         uint256 rewardAmount = RewardCalculatorLib.calculatePendingMachineRewards(
-            machineShares,  currentRewardPerCalcPoint.accumulatedPerShare,machineRewards.lastAccumulatedPerShare
+            machineShares, currentRewardPerCalcPoint.accumulatedPerShare, machineRewards.lastAccumulatedPerShare
         );
 
         return machineRewards.accumulated + rewardAmount;
@@ -1004,21 +1002,22 @@ contract BandWidthStaking is
 
         StakeInfo memory stakeInfo = machineId2StakeInfos[machineId];
         if (tp == NotifyType.MachineOffline) {
-//            SlashInfo memory slashInfo = newSlashInfo(stakeInfo.holder, machineId, BASE_RESERVE_AMOUNT);
-//            addSlashInfoAndReport(slashInfo);
+            //            SlashInfo memory slashInfo = newSlashInfo(stakeInfo.holder, machineId, BASE_RESERVE_AMOUNT);
+            //            addSlashInfoAndReport(slashInfo);
             emit SlashMachineOnOffline(stakeInfo.holder, machineId, BASE_RESERVE_AMOUNT);
         }
         return true;
     }
 
     function getMachineInfoForDBCScan(string memory machineId) external view returns (MachineInfoForDBCScan memory) {
-        (, uint256 canClaimAmount, , uint256 claimedAmount) = getRewardInfo(machineId);
-//        uint256 totalRewardAmount = canClaimAmount + lockedAmount + claimedAmount;
+        (, uint256 canClaimAmount,, uint256 claimedAmount) = getRewardInfo(machineId);
+        //        uint256 totalRewardAmount = canClaimAmount + lockedAmount + claimedAmount;
         bool _isStaking = isStaking(machineId);
         (,, uint256 cpuCores, uint256 machineMem, string memory region, uint256 hdd, uint256 bandwidth) =
             dbcAIContract.machineBandWidthInfos(machineId);
 
-        uint256 locked = machineId2LockedRewardDetail[machineId].totalAmount - machineId2LockedRewardDetail[machineId].claimedAmount;
+        uint256 locked =
+            machineId2LockedRewardDetail[machineId].totalAmount - machineId2LockedRewardDetail[machineId].claimedAmount;
 
         MachineInfoForDBCScan memory machineInfo = MachineInfoForDBCScan({
             isStaking: _isStaking,
@@ -1113,36 +1112,27 @@ contract BandWidthStaking is
     {
         calcPoint = calcPoint * nftCount;
         uint256 machineShares = _getMachineShares(calcPoint, reserveAmount);
-        uint256 machineAccumulatedPerShare = rewardsPerCalcPoint.accumulatedPerShare;
+        console.log("machineShares:  ", machineShares);
+        uint256 regionTotalShares = region2totalAdjustUnit[region] + machineShares;
+        console.log("regionTotalShares:  ", regionTotalShares);
+        RewardCalculatorLib.UserRewards memory machineRewards;
+        machineRewards.accumulated = 0;
+        machineRewards.lastAccumulatedPerShare = region2RewardPerCalcPoint[region].accumulatedPerShare;
 
-        uint256 regionTotalShares = region2totalAdjustUnit[region];
+        uint256 regionRewardsPerSeconds = getRegionRewardsPerSeconds(region);
+        console.log("regionRewardsPerSeconds:  ", regionRewardsPerSeconds);
 
-        uint256 _oneDayAccumulatedPerShare = oneDayAccumulatedPerShare(machineAccumulatedPerShare, regionTotalShares);
+        if (machineRewards.lastAccumulatedPerShare == 0) {
+            return regionRewardsPerSeconds * 1 days;
+        }
 
+        RewardCalculatorLib.RewardsPerShare memory currentRewardPerCalcPoint =
+            _getOneDayUpdatedRegionRewardPerCalcPoint(regionTotalShares, regionRewardsPerSeconds, region);
+        //            _getUpdatedRewardPerCalcPoint(totalDistributedRewardAmount, totalBurnedRewardAmount, regionTotalShares);
         uint256 rewardAmount = RewardCalculatorLib.calculatePendingMachineRewards(
-            machineShares, machineAccumulatedPerShare, _oneDayAccumulatedPerShare
+            machineShares, currentRewardPerCalcPoint.accumulatedPerShare, machineRewards.lastAccumulatedPerShare
         );
 
-        return rewardAmount;
+        return machineRewards.accumulated + rewardAmount;
     }
-
-    function oneDayAccumulatedPerShare(uint256 currentAccumulatedPerShare, uint256 totalShares)
-        internal
-        view
-        returns (uint256)
-    {
-        uint256 elapsed = 1 days;
-        uint256 rewardsRate = (getDailyRewardAmount()) / 1 days;
-
-        uint256 accumulatedPerShare = currentAccumulatedPerShare + 1 ether * elapsed * rewardsRate / totalShares;
-
-        return accumulatedPerShare;
-    }
-
-    function getRegionDailyRewardAmount(string calldata _region) public view returns (uint256) {
-        uint256 regionValue = region2Value[_region];
-        uint256 regionDailyRewardAmount = (getDailyRewardAmount() * regionValue) / totalRegionValue;
-        return regionDailyRewardAmount;
-    }
-
 }

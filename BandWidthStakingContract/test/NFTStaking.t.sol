@@ -118,7 +118,7 @@ contract RentTest is Test {
 
         assertEq(totalCalcPoint, totalCalcPointBefore + 100);
         (uint256 accumulated,) = nftStaking.machineId2StakeUnitRewards(machineId);
-//        assertEq(accumulatedPerShare, lastAccumulatedPerShare);
+        //        assertEq(accumulatedPerShare, lastAccumulatedPerShare);
         assertEq(accumulated, 0);
     }
 
@@ -202,35 +202,32 @@ contract RentTest is Test {
         tokenIds3[0] = 10;
     }
 
-        function testBurnInactiveRegionRewards() public {
+    function testBurnInactiveRegionRewards() public {
+        passDays(1);
 
-            passDays(1);
+        address stakeHolder = owner;
+        string memory machineId = "machineId";
 
-            address stakeHolder = owner;
-            string memory machineId = "machineId";
+        vm.startPrank(stakeHolder);
+        // staking.stake(machineId, 0, tokenIds, 1);
+        stakeByOwner(machineId, 0, stakeHolder);
+        vm.stopPrank();
 
-            vm.startPrank(stakeHolder);
-            // staking.stake(machineId, 0, tokenIds, 1);
-            stakeByOwner(machineId, 0, stakeHolder);
-            vm.stopPrank();
+        //        (address[] memory topHolders, uint256[] memory topCalcPoints) = state.getTopStakeHolders();
+        //        assertEq(topHolders[0], stakeHolder);
+        //        assertEq(topCalcPoints[0], 100);
 
-            //        (address[] memory topHolders, uint256[] memory topCalcPoints) = state.getTopStakeHolders();
-            //        assertEq(topHolders[0], stakeHolder);
-            //        assertEq(topCalcPoints[0], 100);
+        assertTrue(nftStaking.isStaking(machineId));
 
-            assertTrue(nftStaking.isStaking(machineId));
-
-//            uint256 activeRegionReward = nftStaking.getDailyRewardAmount() * mockRegionValue / nftStaking.totalRegionValue();
-            uint256 activeRegionReward = 0;
-            assertLe(nftStaking.totalBurnedRewardAmount(), nftStaking.getDailyRewardAmount() - activeRegionReward);
-            assertGe(
-                nftStaking.totalBurnedRewardAmount(), nftStaking.getDailyRewardAmount() - activeRegionReward - 1 * 1e18
-            );
-        }
+        //            uint256 activeRegionReward = nftStaking.getDailyRewardAmount() * mockRegionValue / nftStaking.totalRegionValue();
+        uint256 activeRegionReward = 0;
+        assertLe(nftStaking.totalBurnedRewardAmount(), nftStaking.getDailyRewardAmount() - activeRegionReward);
+        assertGe(
+            nftStaking.totalBurnedRewardAmount(), nftStaking.getDailyRewardAmount() - activeRegionReward - 1 * 1e18
+        );
+    }
 
     function testBurnInactiveRegionRewards1() public {
-
-
         address stakeHolder = owner;
         string memory machineId = "machineId";
 
@@ -246,7 +243,7 @@ contract RentTest is Test {
         assertTrue(nftStaking.isStaking(machineId));
         passDays(1);
 
-//        address stakeHolder = owner;
+        //        address stakeHolder = owner;
         string memory machineId1 = "machineId1";
 
         vm.startPrank(stakeHolder);
@@ -295,5 +292,40 @@ contract RentTest is Test {
 
         vm.warp(vm.getBlockTimestamp() + timeToAdvance - 1);
         vm.roll(vm.getBlockNumber() + n - 1);
+    }
+
+    function testPreCalculateRewards() public {
+        // 设置初始状态
+        // vm.startPrank(owner);
+        // nftStaking.setRewardStartAt(block.timestamp);
+        // rewardToken.mint(address(nftStaking), 1000000 ether);
+        // vm.stopPrank();
+
+        stakeByOwner("m", 10000 * 1 ether, owner);
+
+        // 测试场景1: 基本奖励计算
+        string memory region = "Maharashtra";
+        uint256 calcPoint = 100;
+        uint256 nftCount = 1;
+        uint256 reserveAmount = 10000 ether;
+        uint256 reward = nftStaking.preCalculateRewards(region, calcPoint, nftCount, reserveAmount);
+        assertGt(reward, 0, "Reward should be greater than 0");
+
+        // 测试场景2: NFT数量增加时的奖励
+        uint256 reward2 = nftStaking.preCalculateRewards(region, calcPoint, 2, reserveAmount);
+        assertGt(reward2, reward, "Reward should increase with more NFTs");
+
+        // 测试场景3: 质押金额增加时的奖励
+        uint256 reward3 = nftStaking.preCalculateRewards(region, calcPoint, nftCount, reserveAmount * 2);
+        assertGt(reward3, reward, "Reward should increase with more reserve amount");
+
+        // 测试场景4: 不同区域的奖励
+        string memory region2 = "East China";
+        uint256 reward4 = nftStaking.preCalculateRewards(region2, calcPoint, nftCount, reserveAmount);
+        assertTrue(reward4 != reward, "Rewards should be different for different regions");
+
+        // 测试场景5: 零点值测试
+        uint256 reward5 = nftStaking.preCalculateRewards(region, 0, nftCount, reserveAmount);
+        assertEq(reward5, 0, "Reward should be 0 with 0 calcPoint");
     }
 }

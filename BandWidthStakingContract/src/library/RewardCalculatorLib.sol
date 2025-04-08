@@ -16,6 +16,36 @@ library RewardCalculatorLib {
         uint256 lastAccumulatedPerShare; // last accumulated rewards per share of user
     }
 
+    function getOneDayUpdateRewardsPerShare(
+        RewardsPerShare memory rewardsPerTokenIn,
+        uint256 totalShares,
+        uint256 rewardsRate,
+        uint256 rewardsStart,
+        uint256 rewardsEnd
+    ) internal view returns (RewardsPerShare memory) {
+        RewardsPerShare memory rewardsPerTokenOut =
+            RewardsPerShare(rewardsPerTokenIn.accumulatedPerShare, rewardsPerTokenIn.lastUpdated);
+
+        if (block.timestamp < rewardsStart) return rewardsPerTokenOut;
+
+        uint256 updateTime;
+        if (rewardsEnd == 0) {
+            updateTime = block.timestamp;
+        } else {
+            updateTime = block.timestamp < rewardsEnd ? block.timestamp : rewardsEnd;
+        }
+        uint256 elapsed = 1 days;
+
+        if (elapsed == 0) return rewardsPerTokenOut;
+        rewardsPerTokenOut.lastUpdated = updateTime;
+
+        if (totalShares == 0) return rewardsPerTokenOut;
+
+        rewardsPerTokenOut.accumulatedPerShare =
+            rewardsPerTokenIn.accumulatedPerShare + PRECISION_FACTOR * elapsed * rewardsRate / totalShares;
+        return rewardsPerTokenOut;
+    }
+
     function getUpdateRewardsPerShare(
         RewardsPerShare memory rewardsPerTokenIn,
         uint256 totalShares,
@@ -54,7 +84,7 @@ library RewardCalculatorLib {
         if (machineRewardsIn.lastAccumulatedPerShare == rewardsPerToken_.lastUpdated) return machineRewardsIn;
 
         machineRewardsIn.accumulated += calculatePendingMachineRewards(
-            machineShares, rewardsPerToken_.accumulatedPerShare,machineRewardsIn.lastAccumulatedPerShare
+            machineShares, rewardsPerToken_.accumulatedPerShare, machineRewardsIn.lastAccumulatedPerShare
         );
         machineRewardsIn.lastAccumulatedPerShare = rewardsPerToken_.accumulatedPerShare;
 
@@ -69,7 +99,7 @@ library RewardCalculatorLib {
         if (latterAccumulatedPerShare < earlierAccumulatedPerShare) {
             return 0;
         }
-        if (earlierAccumulatedPerShare == 0){
+        if (earlierAccumulatedPerShare == 0) {
             return 0;
         }
         return userShares * (latterAccumulatedPerShare - earlierAccumulatedPerShare) / PRECISION_FACTOR;

@@ -394,9 +394,9 @@ contract OldBandWidthStaking is
             RegionStakeInfo memory info = region2StakeInfo[region];
             uint256 duration = block.timestamp - lastBurnTime;
             if (info.stakedMachineCount == 0 && block.timestamp >= info.lastUnStakeTime + duration) {
-//                uint256 regionValue = region2Value[region];
-//                uint256 dailyRegionRewardAmount = getDailyRewardAmount() * regionValue / totalRegionValue;
-//                durationInactiveReward += (duration * dailyRegionRewardAmount / 1 days);
+                //                uint256 regionValue = region2Value[region];
+                //                uint256 dailyRegionRewardAmount = getDailyRewardAmount() * regionValue / totalRegionValue;
+                //                durationInactiveReward += (duration * dailyRegionRewardAmount / 1 days);
             }
         }
         return durationInactiveReward;
@@ -504,7 +504,7 @@ contract OldBandWidthStaking is
 
         //        (bool isOnline, bool isRegistered) = dbcAIContract.getMachineState(machineId, PROJECT_NAME, STAKING_TYPE);
         //        require(isOnline && isRegistered, "machine not online or not registered");
-//        require(getDailyRewardAmount() > 0, "daily reward amount used out");
+        //        require(getDailyRewardAmount() > 0, "daily reward amount used out");
         require(!isStaking(machineId), "machine already staked");
         require(nftTokenIds.length > 0, "nft token ids is empty");
         uint256 nftCount = getNFTCount(nftTokenIdBalances);
@@ -810,9 +810,9 @@ contract OldBandWidthStaking is
         emit PaySlash(machineId, slashToPayAddress, BASE_RESERVE_AMOUNT);
     }
 
-//    function getDailyRewardAmount() public view returns (uint256) {
-//        return OldRewardCalculator._getDailyRewardAmount(totalDistributedRewardAmount, totalBurnedRewardAmount);
-//    }
+    //    function getDailyRewardAmount() public view returns (uint256) {
+    //        return OldRewardCalculator._getDailyRewardAmount(totalDistributedRewardAmount, totalBurnedRewardAmount);
+    //    }
 
     //    function _updateRewardPerCalcPoint() internal {
     //        uint256 accumulatedPerShareBefore = rewardsPerCalcPoint.accumulatedPerShare;
