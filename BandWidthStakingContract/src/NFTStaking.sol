@@ -1105,6 +1105,12 @@ contract BandWidthStaking is
     //     emit Staked(stakeholder, machineId, originCalcPoint, calcPoint, region);
     // }
 
+    function getRegionDailyRewardAmount(string memory _region) public view returns (uint256) {
+        uint256 regionValue = region2Value[_region];
+        uint256 regionDailyRewardAmount = (getDailyRewardAmount() * regionValue) / totalRegionValue;
+        return regionDailyRewardAmount;
+    }
+
     function preCalculateRewards(string memory region, uint256 calcPoint, uint256 nftCount, uint256 reserveAmount)
         public
         view
@@ -1112,15 +1118,12 @@ contract BandWidthStaking is
     {
         calcPoint = calcPoint * nftCount;
         uint256 machineShares = _getMachineShares(calcPoint, reserveAmount);
-        console.log("machineShares:  ", machineShares);
         uint256 regionTotalShares = region2totalAdjustUnit[region] + machineShares;
-        console.log("regionTotalShares:  ", regionTotalShares);
         RewardCalculatorLib.UserRewards memory machineRewards;
         machineRewards.accumulated = 0;
         machineRewards.lastAccumulatedPerShare = region2RewardPerCalcPoint[region].accumulatedPerShare;
 
         uint256 regionRewardsPerSeconds = getRegionRewardsPerSeconds(region);
-        console.log("regionRewardsPerSeconds:  ", regionRewardsPerSeconds);
 
         if (machineRewards.lastAccumulatedPerShare == 0) {
             return regionRewardsPerSeconds * 1 days;
