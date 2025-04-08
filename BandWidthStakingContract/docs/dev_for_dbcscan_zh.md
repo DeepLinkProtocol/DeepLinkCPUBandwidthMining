@@ -1,13 +1,8 @@
-deeplink长租竞赛质押合约接口文档(dbcscan)
+deeplink带宽质押合约接口文档(dbcscan)
 ================
 
 ## 描述
-deeplink长租竞赛质押合约是用于管理 NFT 质押的智能合约。它提供了多种功能，包括质押、解质押、领取奖励等。
-
-## 合约地址(测试网)
-    质押合约：0x995ddda33a7434c6080f45d98dda62721dd6f019
-    nft: 0x905dE58579886C5afe9B6406CFDE82bd6a1087C1
-    dlc token: 0xC8b47112D5413c6d06D4BB7573fD903908246614
+deeplink带宽质押合约是用于管理 NFT 质押的智能合约。它提供了多种功能，包括质押、解质押、领取奖励等。
 
 ## 函数接口
 ### `stake(address holder, string calldata machineId, calldata nftTokenIds,uint256[] calldata nftTokenIdBalances) public nonReentrant`
@@ -46,15 +41,8 @@ deeplink长租竞赛质押合约是用于管理 NFT 质押的智能合约。它�
 - 事件：
     - `claimed`: 领取奖励成功事件
 
-### `getMachineInfoForDBCScan(string calldata machineId) external view returns (MachineInfoForDBCScan memory)`
-- 描述：获取机器信息
-- 参数：
-    - `machineId`: 机器 ID
-- 返回值：`MachineInfoForDBCScan`
-
-
 ### `getDailyRewardAmount() public view returns (uint256)`
-- 描述：每日奖励数量
+- 描述：每日总奖励数量
 
 ### `getStakeEndTimestamp(string calldata machineId) public view returns(uint256)`
 - 描述：获取质押结束时间
@@ -62,22 +50,21 @@ deeplink长租竞赛质押合约是用于管理 NFT 质押的智能合约。它�
     - `machineId`: 机器 ID
 - 返回值：uint256 质押结束时间戳(seconds)
 
-```solidity
- struct MachineInfoForDBCScan {
-        bool isStaking;  // 是否在质押
-        string region; // 地区
-        uint256 hdd; // 硬盘
-        uint256 bandwidth; // 带宽
-        uint256 mem;     // 内存大小 G
-        uint256 cpuCors; // cpu核数
-        string  projectName;  // 项目名字
-        uint256 totalRewardAmount;    // 总奖励数量
-        uint256 claimedRewardAmount;  // 已领取奖励数量
-        uint256 lockedRewardAmount;    // 锁仓奖励数量
-    }
-```
+### `getRegionDailyRewardAmount(string region) public view returns (uint256)`
+- 描述：每日总奖励数量
+- 参数：
+    - `region`: 区域
+- 返回值：uint256 每日奖励数量
 
+### `preCalculateRewards(string memory region, uint256 calcPoint, uint256 nftCount, uint256 reserveAmount) public view returns (uint256)`
 
+- 描述：预计算当日奖励
+- 参数：
+    - `region`: 区域
+    - `calcPoint`: 带宽
+    - `nftCount`: NFT数量
+    - `reserveAmount`: 质押DLC数量
+- 返回值：uint256 预计算当日奖励数量
 
 ## 全局变量
 - 'totalStakingGpuCount' uint256 : 当前处于质押状态GPU的总数量

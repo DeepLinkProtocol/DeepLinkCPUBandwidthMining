@@ -8,7 +8,7 @@ dataSources:
     name: NFTStaking
     network: deepbrainchain-mainnet
     source:
-      address: "0xefa72f0297f15bb70f00f154baa0e72e9c6793be"
+      address: "0xc663ee691f98d80e5f1cce3c9ad53a14da676a23"
       abi: NFTStaking
       startBlock: 1399265
     mapping:
@@ -37,7 +37,8 @@ dataSources:
           handler: handleUnstaked
         - event: BurnedInactiveRegionRewards(uint256)
           handler: handleBurnedInactiveRegionRewards
-
+        - event: BurnedInactiveSingleRegionRewards(string,uint256)
+          handler: handleBurnedInactiveSingleRegionRewards
 
 
       file: ./src/nft-staking.ts

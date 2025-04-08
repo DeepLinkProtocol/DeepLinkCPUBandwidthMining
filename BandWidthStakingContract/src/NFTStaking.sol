@@ -122,6 +122,8 @@ contract BandWidthStaking is
     mapping(string => uint256) public region2Value;
     mapping(string => RegionStakeInfo) public region2StakeInfo;
 
+    bool public paused;
+
     event Staked(address indexed stakeholder, string machineId, uint256 originCalcPoint, uint256 calcPoint, string region);
 
     event ReserveDLC(string machineId, uint256 amount);
@@ -135,11 +137,13 @@ contract BandWidthStaking is
         bool paidSlash
     );
 
+
     //    event AddNFTs(string machineId, uint256[] nftTokenIds);
     event RentMachine(string machineId);
     event EndRentMachine(string machineId);
     event ReportMachineFault(string machineId, uint256 slashId, address renter);
     event BurnedInactiveRegionRewards(uint256 amount);
+    event BurnedInactiveSingleRegionRewards(string region, uint256 amount);
     event DepositReward(uint256 amount);
     event AddBackCalcPointOnOnline(string machineId, uint256 calcPoint);
     event MachineRegister(string machineId, uint256 calcPoint);
@@ -236,6 +240,10 @@ contract BandWidthStaking is
     function setRewardStartAt(uint256 timestamp) external onlyOwner {
         require(timestamp >= block.timestamp, "time must be greater than current block number");
         rewardStartAtTimestamp = timestamp;
+    }
+
+    function setPaused(bool _paused) external onlyOwner {
+        paused = _paused;
     }
 
     function setDLCClientWallets(address[] calldata addrs) external onlyOwner {
@@ -386,30 +394,45 @@ contract BandWidthStaking is
         require(totalValue == totalRegionValue, "total value is not correct");
     }
 
-    function getInactiveRegionRewards() public view returns (uint256) {
+    function inactiveRegionRewards() public returns (uint256) {
         uint256 durationInactiveReward = 0;
 
         for (uint256 i = 0; i < regions.length; i++) {
             string memory region = regions[i];
-            RegionStakeInfo memory info = region2StakeInfo[region];
             uint256 duration = block.timestamp - lastBurnTime;
-            if (info.stakedMachineCount == 0 && block.timestamp >= info.lastUnStakeTime + duration) {
+            if (isInactiveRegion(region)) {
                 uint256 regionValue = region2Value[region];
                 uint256 dailyRegionRewardAmount = getDailyRewardAmount() * regionValue / totalRegionValue;
-                durationInactiveReward += (duration * dailyRegionRewardAmount / 1 days);
+                uint256 currentInactiveRegionReward = (duration * dailyRegionRewardAmount / 1 days);
+                durationInactiveReward += currentInactiveRegionReward;
+                emit BurnedInactiveSingleRegionRewards(region, currentInactiveRegionReward);
+
             }
         }
+
+      
+
         return durationInactiveReward;
     }
 
+    function isInactiveRegion(string memory region) internal view returns (bool) {
+        uint256 duration = block.timestamp - lastBurnTime;
+        RegionStakeInfo memory info = region2StakeInfo[region];
+        if (info.stakedMachineCount == 0 && block.timestamp >= info.lastUnStakeTime + duration) {
+            return true;
+        }
+        return false;
+    }
+
     function burnInactiveRegionRewards() internal {
-        uint256 durationInactiveReward = getInactiveRegionRewards();
+        uint256 durationInactiveReward = inactiveRegionRewards();
         totalBurnedRewardAmount += durationInactiveReward;
         rewardToken.approve(address(this), durationInactiveReward);
         //        rewardToken.burnFrom(address(this), durationInactiveReward);
         require(burnAddress != address(0), "burn address not set");
         rewardToken.transfer(burnAddress, durationInactiveReward);
         lastBurnTime = block.timestamp;
+       
         emit BurnedInactiveRegionRewards(durationInactiveReward);
     }
 
@@ -538,6 +561,7 @@ contract BandWidthStaking is
         _joinStaking(machineId, calcPoint, 0);
         _tryInitMachineLockRewardInfo(machineId, currentTime);
 
+        burnInactiveRegionRewards();
         holder2MachineIds[stakeholder].push(machineId);
         RegionStakeInfo storage regionStakeInfo = region2StakeInfo[region];
         regionStakeInfo.stakedMachineCount += 1;
@@ -592,6 +616,7 @@ contract BandWidthStaking is
     }
 
     function _claim(string memory machineId) internal {
+        require(paused == false, "paused");
         require(rewardStart(), "reward not start yet");
         StakeInfo storage stakeInfo = machineId2StakeInfos[machineId];
 
@@ -651,9 +676,6 @@ contract BandWidthStaking is
         if (lockedAmount > 0) {
             machineId2LockedRewardDetail[machineId].totalAmount += lockedAmount;
         }
-
-        // burn inactive region rewards todo open
-//        burnInactiveRegionRewards();
 
         emit Claimed(
             stakeholder, machineId, rewardAmount + _dailyReleaseAmount, canClaimAmount, moveToReserveAmount, _paidSlash
@@ -1014,8 +1036,113 @@ contract BandWidthStaking is
 
         return machineInfo;
     }
+    // function stake1(
+    //     address stakeholder,
+    //     string calldata machineId,
+    //     uint256[] calldata nftTokenIds,
+    //     uint256[] calldata nftTokenIdBalances
+    // ) external nonReentrant {
+    //     (
+    //         address machineOwner,
+    //         ,
+    //         uint256 cpuCores,
+    //         uint256 machineMem,
+    //         string memory region,
+    //         uint256 hdd,
+    //         uint256 bandwidth
+    //     ) = dbcAIContract.machineBandWidthInfos(machineId);
 
-    function version() external pure returns (uint256) {
-        return 1;
+    //     uint256 calcPoint = bandwidth;
+    //     require(dbcAIContract.freeGpuAmount(machineId) >= 1, "machine not stake enough dbc");
+    //     require(nftTokenIds.length == nftTokenIdBalances.length, "nft token ids and balances length not match");
+    //     require(region2Value[region] > 0, "machine region not found");
+    //     require(calcPoint >= 10, "machine calc point not found");
+    //     require(cpuCores >= 1, "machine cpu cores not found");
+    //     require(machineMem >= 2, "machine memory not enough");
+    //     require(hdd >= 30, "machine hdd not enough");
+    //     require(machineOwner == stakeholder, "machine owner not match");
+
+    //     (bool isOnline, bool isRegistered) = dbcAIContract.getMachineState(machineId, PROJECT_NAME, STAKING_TYPE);
+    //     require(isOnline && isRegistered, "machine not online or not registered");
+    //     require(getDailyRewardAmount() > 0, "daily reward amount used out");
+    //     require(!isStaking(machineId), "machine already staked");
+    //     require(nftTokenIds.length > 0, "nft token ids is empty");
+    //     uint256 nftCount = getNFTCount(nftTokenIdBalances);
+    //     require(nftCount <= getMaxNFTCountCanStake(), "nft count must be less than limit");
+    //     uint256 originCalcPoint = calcPoint;
+    //     calcPoint = calcPoint * nftCount;
+
+    //     uint256 currentTime = block.timestamp;
+
+    //     nftToken.safeBatchTransferFrom(stakeholder, address(this), nftTokenIds, nftTokenIdBalances, "transfer");
+    //     uint256 stakeEndAt = 0;
+    //     machineId2StakeInfos[machineId] = StakeInfo({
+    //         startAtTimestamp: currentTime,
+    //         lastClaimAtTimestamp: currentTime,
+    //         endAtTimestamp: stakeEndAt,
+    //         calcPoint: 0,
+    //         reservedAmount: 0,
+    //         nftTokenIds: nftTokenIds,
+    //         tokenIdBalances: nftTokenIdBalances,
+    //         nftCount: nftCount,
+    //         holder: stakeholder,
+    //         claimedAmount: 0,
+    //         isRentedByUser: false,
+    //         nextRenterCanRentAt: currentTime,
+    //         region: region,
+    //         originCalcPoint: bandwidth
+    //     });
+
+    //     //        machineId2StakeUnitRewards[machineId].lastAccumulatedPerShare = rewardsPerCalcPoint.accumulatedPerShare;
+
+    //     _joinStaking(machineId, calcPoint, 0);
+    //     _tryInitMachineLockRewardInfo(machineId, currentTime);
+
+    //     burnInactiveRegionRewards();
+    //     holder2MachineIds[stakeholder].push(machineId);
+    //     RegionStakeInfo storage regionStakeInfo = region2StakeInfo[region];
+    //     regionStakeInfo.stakedMachineCount += 1;
+    //     dbcAIContract.reportStakingStatus(PROJECT_NAME, StakingType.Free, machineId, 1, true);
+    //     emit Staked(stakeholder, machineId, originCalcPoint, calcPoint, region);
+    // }
+
+    function preCalculateRewards(string memory region, uint256 calcPoint, uint256 nftCount, uint256 reserveAmount)
+        public
+        view
+        returns (uint256)
+    {
+        calcPoint = calcPoint * nftCount;
+        uint256 machineShares = _getMachineShares(calcPoint, reserveAmount);
+        uint256 machineAccumulatedPerShare = rewardsPerCalcPoint.accumulatedPerShare;
+
+        uint256 regionTotalShares = region2totalAdjustUnit[region];
+
+        uint256 _oneDayAccumulatedPerShare = oneDayAccumulatedPerShare(machineAccumulatedPerShare, regionTotalShares);
+
+        uint256 rewardAmount = RewardCalculatorLib.calculatePendingMachineRewards(
+            machineShares, machineAccumulatedPerShare, _oneDayAccumulatedPerShare
+        );
+
+        return rewardAmount;
     }
+
+    function oneDayAccumulatedPerShare(uint256 currentAccumulatedPerShare, uint256 totalShares)
+        internal
+        view
+        returns (uint256)
+    {
+        uint256 elapsed = 1 days;
+        uint256 rewardsRate = (getDailyRewardAmount()) / 1 days;
+
+        uint256 accumulatedPerShare = currentAccumulatedPerShare + 1 ether * elapsed * rewardsRate / totalShares;
+
+        return accumulatedPerShare;
+    }
+
+    function getRegionDailyRewardAmount(string calldata _region) public view returns (uint256) {
+        uint256 regionValue = region2Value[_region];
+        uint256 regionDailyRewardAmount = (getDailyRewardAmount() * regionValue) / totalRegionValue;
+        return regionDailyRewardAmount;
+    }
+
 }

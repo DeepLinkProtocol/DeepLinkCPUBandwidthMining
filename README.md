@@ -1,4 +1,4 @@
 # DeepLinkCPUBandwidthMining
 DeepLink CPU Bandwidth Mining
 
-# mainnet staking contract address: 0x8d6ff6a3817e7bc9b443d8e7d942b2cda3c7725b
+# mainnet staking contract address: 0xc663ee691f98d80e5f1cce3c9ad53a14da676a23

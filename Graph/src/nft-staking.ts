@@ -12,12 +12,13 @@ import {
   Unstaked as UnstakedEvent,
   MoveToReserveAmount as MoveToReserveAmountEvent,
   BurnedInactiveRegionRewards as BurnedInactiveRegionRewardsEvent,
+  BurnedInactiveSingleRegionRewards as BurnedInactiveSingleRegionRewardsEvent,
 } from '../generated/NFTStaking/NFTStaking';
 import {
   StateSummary,
   StakeHolder,
   MachineInfo,
-  RegionInfo,
+  RegionInfo, RegionBurnInfo,
 } from '../generated/schema';
 
 export function handleClaimed(event: ClaimedEvent): void {
@@ -46,7 +47,7 @@ export function handleClaimed(event: ClaimedEvent): void {
     );
   stakeholder.totalClaimedRewardAmount =
     stakeholder.totalClaimedRewardAmount.plus(event.params.totalRewardAmount);
-  // stakeholder.totalReservedAmount = stakeholder.totalReservedAmount.plus(event.params.moveToReservedAmount)
+  // stakeholder.totalreservedAmount = stakeholder.totalreservedAmount.plus(event.params.moveToreservedAmount)
   stakeholder.save();
 }
 
@@ -85,6 +86,15 @@ export function handleMoveToReserveAmount(
     event.params.amount
   );
   stateSummary.save();
+
+  let regionInfo = RegionInfo.load(Bytes.fromUTF8(machineInfo.region));
+  if (regionInfo == null) {
+    return
+  }
+  regionInfo.reservedAmount = regionInfo.reservedAmount.plus(
+    event.params.amount
+  );
+  regionInfo.save();
 }
 
 export function handlePaySlash(event: PaySlashEvent): void {
@@ -159,6 +169,17 @@ export function handleReserveDLC(event: ReserveDLCEvent): void {
     event.params.amount
   );
   stateSummary.save();
+
+
+  let regionInfo = RegionInfo.load(Bytes.fromUTF8(machineInfo.region));
+  if (regionInfo == null) {
+    return
+  }
+  regionInfo.reservedAmount = regionInfo.reservedAmount.plus(
+    event.params.amount
+  );
+  regionInfo.save();
+
 }
 
 export function handleStaked(event: StakedEvent): void {
@@ -187,7 +208,7 @@ export function handleStaked(event: StakedEvent): void {
     machineInfo.holderRef = Bytes.empty();
   }
 
-  machineInfo.region= event.params.region
+  machineInfo.region = event.params.region
 
   machineInfo.totalCalcPoint = event.params.originCalcPoint;
   machineInfo.totalCalcPointWithNFT = event.params.calcPoint;
@@ -242,13 +263,27 @@ export function handleStaked(event: StakedEvent): void {
     regionInfo.region = machineInfo.region;
     regionInfo.stakingMachineCount = BigInt.fromI32(0);
     regionInfo.totalMachineCount = BigInt.fromI32(0);
+    regionInfo.totalBandwidth = BigInt.fromI32(0);
+    regionInfo.stakingBandwidth = BigInt.fromI32(0);
+    regionInfo.reservedAmount = BigInt.fromI32(0);
+    regionInfo.burnedAmount = BigInt.fromI32(0);
   }
+
+
   regionInfo.stakingMachineCount = regionInfo.stakingMachineCount.plus(
     BigInt.fromI32(1)
   );
+
+  regionInfo.stakingBandwidth = regionInfo.stakingBandwidth.plus(
+    machineInfo.totalCalcPoint
+  );
+
   if (isNewMachine) {
     regionInfo.totalMachineCount = regionInfo.totalMachineCount.plus(
       BigInt.fromI32(1)
+    );
+    regionInfo.totalBandwidth = regionInfo.totalBandwidth.plus(
+      machineInfo.totalCalcPoint
     );
   }
   regionInfo.save();
@@ -330,9 +365,18 @@ export function handleUnstaked(event: UnstakedEvent): void {
     return;
   }
 
+  regionInfo.stakingBandwidth = regionInfo.stakingBandwidth.minus(
+    machineInfo.totalCalcPoint
+  );
+
   regionInfo.stakingMachineCount = regionInfo.stakingMachineCount.minus(
     BigInt.fromI32(1)
   );
+
+  regionInfo.reservedAmount = regionInfo.reservedAmount.minus(
+    machineInfo.totalReservedAmount
+  )
+
   regionInfo.save();
 
   if (regionInfo.stakingMachineCount.toI32() == 0) {
@@ -375,4 +419,34 @@ export function handleBurnedInactiveRegionRewards(
     event.params.amount
   );
   stateSummary.save();
+}
+
+
+export function handleBurnedInactiveSingleRegionRewards(event: BurnedInactiveSingleRegionRewardsEvent): void {
+  let regionInfo = RegionInfo.load(Bytes.fromUTF8(event.params.region));
+  if (regionInfo == null) {
+    regionInfo = new RegionInfo(Bytes.fromUTF8(event.params.region));
+    regionInfo.region = event.params.region;
+    regionInfo.stakingMachineCount = BigInt.fromI32(0);
+    regionInfo.totalMachineCount = BigInt.fromI32(0);
+    regionInfo.totalBandwidth = BigInt.fromI32(0);
+    regionInfo.stakingBandwidth = BigInt.fromI32(0);
+    regionInfo.reservedAmount = BigInt.fromI32(0);
+    regionInfo.burnedAmount = BigInt.fromI32(0);
+    return
+  }
+
+  regionInfo.burnedAmount = regionInfo.burnedAmount.plus(
+    event.params.amount
+  );
+
+  regionInfo.save();
+
+  let regionBurnInfo = new RegionBurnInfo(event.transaction.hash)
+  regionBurnInfo.region = event.params.region
+  regionBurnInfo.burnedAmount = event.params.amount
+  regionBurnInfo.blockTimestamp = event.block.timestamp
+  regionBurnInfo.transactionHash = event.transaction.hash
+  regionBurnInfo.save()
+
 }

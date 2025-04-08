@@ -53,7 +53,19 @@ type RegionInfo @entity {
   id: Bytes!
   region: String!
   totalMachineCount: BigInt! # uint256
+  totalBandwidth: BigInt! # uint256
   stakingMachineCount: BigInt! # uint256
+  stakingBandwidth: BigInt! # uint256
+  reservedAmount: BigInt! # uint256
+  burnedAmount: BigInt! # uint256
   machineInfos: [MachineInfo!]! @derivedFrom(field: "regionRef")
+}
+
+type RegionBurnInfo @entity{
+  id: Bytes!
+  region: String!
+  burnedAmount: BigInt! # uint256
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
 }
 
