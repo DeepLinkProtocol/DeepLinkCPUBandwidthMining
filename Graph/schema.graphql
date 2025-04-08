@@ -69,3 +69,9 @@ type RegionBurnInfo @entity{
   transactionHash: Bytes!
 }
 
+type RegionDayBurnInfo @entity {
+  id: Bytes!
+  region: String!
+  burnedAmount: BigInt! # uint256
+  date: String!
+}

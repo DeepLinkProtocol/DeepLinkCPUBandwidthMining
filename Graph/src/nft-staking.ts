@@ -18,7 +18,7 @@ import {
   StateSummary,
   StakeHolder,
   MachineInfo,
-  RegionInfo, RegionBurnInfo,
+  RegionInfo, RegionBurnInfo, RegionDayBurnInfo
 } from '../generated/schema';
 
 export function handleClaimed(event: ClaimedEvent): void {
@@ -422,6 +422,14 @@ export function handleBurnedInactiveRegionRewards(
 }
 
 
+function timestampToDateString(timestamp: BigInt): string {
+  let date = new Date(timestamp.toI64() * 1000)
+  let year = date.getUTCFullYear()
+  let month = (date.getUTCMonth() + 1).toString().padStart(2, '0')
+  let day = date.getUTCDate().toString().padStart(2, '0')
+  return year.toString() + '-' + month + '-' + day
+}
+
 export function handleBurnedInactiveSingleRegionRewards(event: BurnedInactiveSingleRegionRewardsEvent): void {
   let regionInfo = RegionInfo.load(Bytes.fromUTF8(event.params.region));
   if (regionInfo == null) {
@@ -447,5 +455,21 @@ export function handleBurnedInactiveSingleRegionRewards(event: BurnedInactiveSin
   regionBurnInfo.blockTimestamp = event.block.timestamp
   regionBurnInfo.transactionHash = event.transaction.hash
   regionBurnInfo.save()
+
+
+  let today = timestampToDateString(event.block.timestamp)
+  let dayBurnInfoId = Bytes.fromUTF8(today + '-' + event.params.region)
+  let regionDayBurnInfo = RegionDayBurnInfo.load(dayBurnInfoId)
+  if (regionDayBurnInfo == null) {
+    regionDayBurnInfo = new RegionDayBurnInfo(dayBurnInfoId)
+    regionDayBurnInfo.region = event.params.region
+    regionDayBurnInfo.burnedAmount = event.params.amount
+    regionDayBurnInfo.date = today
+    regionDayBurnInfo.save()
+    return
+  }
+  regionDayBurnInfo.burnedAmount = regionDayBurnInfo.burnedAmount.plus(event.params.amount)
+
+  regionDayBurnInfo.save()
 
 }
