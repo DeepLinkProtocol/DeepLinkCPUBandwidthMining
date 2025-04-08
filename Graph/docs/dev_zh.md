@@ -78,7 +78,7 @@
     type RegionBurnInfo @entity {
         id: Bytes!
         region: String!  // 区域名字 *
-        burnAmount: BigInt! // 销毁数量*
+        burnedAmount: BigInt! // 销毁数量*
         blockTimestamp: BigInt! // 时间戳 *
         transactionHash: Bytes!
     }

@@ -433,7 +433,6 @@ export function handleBurnedInactiveSingleRegionRewards(event: BurnedInactiveSin
     regionInfo.stakingBandwidth = BigInt.fromI32(0);
     regionInfo.reservedAmount = BigInt.fromI32(0);
     regionInfo.burnedAmount = BigInt.fromI32(0);
-    return
   }
 
   regionInfo.burnedAmount = regionInfo.burnedAmount.plus(
@@ -442,7 +441,7 @@ export function handleBurnedInactiveSingleRegionRewards(event: BurnedInactiveSin
 
   regionInfo.save();
 
-  let regionBurnInfo = new RegionBurnInfo(event.transaction.hash)
+  let regionBurnInfo = new RegionBurnInfo(event.transaction.hash.concatI32(event.logIndex.toI32()))
   regionBurnInfo.region = event.params.region
   regionBurnInfo.burnedAmount = event.params.amount
   regionBurnInfo.blockTimestamp = event.block.timestamp
