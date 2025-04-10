@@ -9,12 +9,9 @@
 ```graphql
     type StateSummary @entity {
         id: Bytes!
-        totalGPUCount: BigInt! # uint256
-        totalStakingGPUCount: BigInt! # uint256
-        totalCalcPointPoolCount: BigInt! # uint256
-        totalRentedGPUCount: BigInt! # uint256
-        totalBurnedRentFee: BigInt! # uint256
-        totalReservedAmount: BigInt! # uint256
+        totalStakingGPUCount: BigInt! # uint256 总机器数
+        totalBurnedReward: BigInt! # uint256 总销毁数
+        totalReservedAmount: BigInt! # uint256 总质押数
     }
 
 ```
@@ -72,15 +69,10 @@
         stakingMachineCount: BigInt! # uint256 // 区域内质押中的机器总数 *
         stakingBandwidth: BigInt! # uint256  // 区域内质押中的总带宽 *
         reservedAmount: BigInt! # uint256  // 区域内质押的总金额 *
+        burnedAmount: BigInt! # uint256  // 区域内已销毁的非活跃金额 *
         machineInfos: [MachineInfo!]!  // 区域内的机器信息
     }
 
-    type RegionBurnInfo @entity {
-        id: Bytes!
-        region: String!  // 区域名字 *
-        burnedAmount: BigInt! // 销毁数量*
-        blockTimestamp: BigInt! // 时间戳 *
-        transactionHash: Bytes!
-    }
+
 
 ```

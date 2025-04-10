@@ -35,8 +35,6 @@ dataSources:
           handler: handleStaked
         - event: Unstaked(indexed address,string,uint256)
           handler: handleUnstaked
-        - event: BurnedInactiveRegionRewards(uint256)
-          handler: handleBurnedInactiveRegionRewards
         - event: BurnedInactiveSingleRegionRewards(string,uint256)
           handler: handleBurnedInactiveSingleRegionRewards
 

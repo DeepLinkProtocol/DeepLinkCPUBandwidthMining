@@ -407,19 +407,19 @@ export function handleUnstaked(event: UnstakedEvent): void {
   machineInfo.save();
 }
 
-export function handleBurnedInactiveRegionRewards(
-  event: BurnedInactiveRegionRewardsEvent
-): void {
-  let stateSummary = StateSummary.load(Bytes.empty());
-  if (stateSummary == null) {
-    return;
-  }
-
-  stateSummary.totalBurnedReward = stateSummary.totalBurnedReward.plus(
-    event.params.amount
-  );
-  stateSummary.save();
-}
+// export function handleBurnedInactiveRegionRewards(
+//   event: BurnedInactiveRegionRewardsEvent
+// ): void {
+//   let stateSummary = StateSummary.load(Bytes.empty());
+//   if (stateSummary == null) {
+//     return;
+//   }
+//
+//   stateSummary.totalBurnedReward = stateSummary.totalBurnedReward.plus(
+//     event.params.amount
+//   );
+//   stateSummary.save();
+// }
 
 
 function timestampToDateString(timestamp: BigInt): string {
@@ -449,27 +449,35 @@ export function handleBurnedInactiveSingleRegionRewards(event: BurnedInactiveSin
 
   regionInfo.save();
 
-  let regionBurnInfo = new RegionBurnInfo(event.transaction.hash.concatI32(event.logIndex.toI32()))
-  regionBurnInfo.region = event.params.region
-  regionBurnInfo.burnedAmount = event.params.amount
-  regionBurnInfo.blockTimestamp = event.block.timestamp
-  regionBurnInfo.transactionHash = event.transaction.hash
-  regionBurnInfo.save()
-
-
-  let today = timestampToDateString(event.block.timestamp)
-  let dayBurnInfoId = Bytes.fromUTF8(today + '-' + event.params.region)
-  let regionDayBurnInfo = RegionDayBurnInfo.load(dayBurnInfoId)
-  if (regionDayBurnInfo == null) {
-    regionDayBurnInfo = new RegionDayBurnInfo(dayBurnInfoId)
-    regionDayBurnInfo.region = event.params.region
-    regionDayBurnInfo.burnedAmount = event.params.amount
-    regionDayBurnInfo.date = today
-    regionDayBurnInfo.save()
-    return
+  let stateSummary = StateSummary.load(Bytes.empty());
+  if (stateSummary == null) {
+    return;
   }
-  regionDayBurnInfo.burnedAmount = regionDayBurnInfo.burnedAmount.plus(event.params.amount)
+  stateSummary.totalBurnedReward = stateSummary.totalBurnedReward.plus(event.params.amount)
+  stateSummary.save()
 
-  regionDayBurnInfo.save()
+
+  // let regionBurnInfo = new RegionBurnInfo(event.transaction.hash.concatI32(event.logIndex.toI32()))
+  // regionBurnInfo.region = event.params.region
+  // regionBurnInfo.burnedAmount = event.params.amount
+  // regionBurnInfo.blockTimestamp = event.block.timestamp
+  // regionBurnInfo.transactionHash = event.transaction.hash
+  // regionBurnInfo.save()
+
+
+  // let today = timestampToDateString(event.block.timestamp)
+  // let dayBurnInfoId = Bytes.fromUTF8(today + '-' + event.params.region)
+  // let regionDayBurnInfo = RegionDayBurnInfo.load(dayBurnInfoId)
+  // if (regionDayBurnInfo == null) {
+  //   regionDayBurnInfo = new RegionDayBurnInfo(dayBurnInfoId)
+  //   regionDayBurnInfo.region = event.params.region
+  //   regionDayBurnInfo.burnedAmount = event.params.amount
+  //   regionDayBurnInfo.date = today
+  //   regionDayBurnInfo.save()
+  //   return
+  // }
+  // regionDayBurnInfo.burnedAmount = regionDayBurnInfo.burnedAmount.plus(event.params.amount)
+
+  // regionDayBurnInfo.save()
 
 }
