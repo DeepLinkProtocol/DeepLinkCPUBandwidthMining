@@ -57,6 +57,9 @@
         online: Boolean! # 是否在线
         registered: Boolean! # 是否注册
         gpuType: String! # string gpu类型
+
+        totalClaimedRewardAmount: BigInt! # uint256 已领取的奖励金额
+        totalReleasedRewardAmount: BigInt! # uint256 已释放的奖励金额
     }
 ```
 
