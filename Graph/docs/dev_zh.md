@@ -58,7 +58,7 @@
         registered: Boolean! # 是否注册
         gpuType: String! # string gpu类型
 
-        totalClaimedRewardAmount: BigInt! # uint256 已领取的奖励金额
+        totalClaimedRewardAmount: BigInt! # uint256 已领取的总奖励金额
         totalReleasedRewardAmount: BigInt! # uint256 已释放的奖励金额
     }
 ```
