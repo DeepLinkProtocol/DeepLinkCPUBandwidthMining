@@ -28,11 +28,10 @@ export function handleClaimed(event: ClaimedEvent): void {
     return;
   }
 
-  machineInfo.totalClaimedRewardAmount =
-    machineInfo.totalClaimedRewardAmount.plus(event.params.totalRewardAmount);
-  machineInfo.totalReleasedRewardAmount = machineInfo.totalReleasedRewardAmount
-    .plus(event.params.moveToUserWalletAmount)
-    .plus(event.params.moveToReservedAmount);
+  machineInfo.totalReleasedRewardAmount = machineInfo.totalReleasedRewardAmount.plus(event.params.moveToUserWalletAmount);
+  machineInfo.totalClaimedRewardAmount = machineInfo.totalClaimedRewardAmount.plus(event.params.totalRewardAmount);
+
+  machineInfo.save();
 
   let stakeholder = StakeHolder.load(
     Bytes.fromHexString(machineInfo.holder.toHexString())
@@ -63,6 +62,9 @@ export function handleMoveToReserveAmount(
   machineInfo.totalReservedAmount = machineInfo.totalReservedAmount.plus(
     event.params.amount
   );
+  machineInfo.totalReleasedRewardAmount = machineInfo.totalReleasedRewardAmount.plus(
+    event.params.amount
+  );
   machineInfo.save();
 
   let stakeholder = StakeHolder.load(
@@ -75,6 +77,11 @@ export function handleMoveToReserveAmount(
   stakeholder.totalReservedAmount = stakeholder.totalReservedAmount.plus(
     event.params.amount
   );
+
+  stakeholder.totalReleasedRewardAmount = stakeholder.totalReleasedRewardAmount.plus(
+    event.params.amount
+  )
+
   stakeholder.save();
 
   let stateSummary = StateSummary.load(Bytes.empty());
@@ -262,8 +269,6 @@ export function handleStaked(event: StakedEvent): void {
     regionInfo = new RegionInfo(Bytes.fromUTF8(machineInfo.region));
     regionInfo.region = machineInfo.region;
     regionInfo.stakingMachineCount = BigInt.fromI32(0);
-    regionInfo.totalMachineCount = BigInt.fromI32(0);
-    regionInfo.totalBandwidth = BigInt.fromI32(0);
     regionInfo.stakingBandwidth = BigInt.fromI32(0);
     regionInfo.reservedAmount = BigInt.fromI32(0);
     regionInfo.burnedAmount = BigInt.fromI32(0);
@@ -278,14 +283,7 @@ export function handleStaked(event: StakedEvent): void {
     machineInfo.totalCalcPoint
   );
 
-  if (isNewMachine) {
-    regionInfo.totalMachineCount = regionInfo.totalMachineCount.plus(
-      BigInt.fromI32(1)
-    );
-    regionInfo.totalBandwidth = regionInfo.totalBandwidth.plus(
-      machineInfo.totalCalcPoint
-    );
-  }
+
   regionInfo.save();
 
   machineInfo.regionRef = regionInfo.id;
@@ -436,8 +434,6 @@ export function handleBurnedInactiveSingleRegionRewards(event: BurnedInactiveSin
     regionInfo = new RegionInfo(Bytes.fromUTF8(event.params.region));
     regionInfo.region = event.params.region;
     regionInfo.stakingMachineCount = BigInt.fromI32(0);
-    regionInfo.totalMachineCount = BigInt.fromI32(0);
-    regionInfo.totalBandwidth = BigInt.fromI32(0);
     regionInfo.stakingBandwidth = BigInt.fromI32(0);
     regionInfo.reservedAmount = BigInt.fromI32(0);
     regionInfo.burnedAmount = BigInt.fromI32(0);

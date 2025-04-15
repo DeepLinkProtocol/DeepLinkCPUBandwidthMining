@@ -52,8 +52,6 @@ type MachineInfo @entity {
 type RegionInfo @entity {
   id: Bytes!
   region: String!
-  totalMachineCount: BigInt! # uint256
-  totalBandwidth: BigInt! # uint256
   stakingMachineCount: BigInt! # uint256
   stakingBandwidth: BigInt! # uint256
   reservedAmount: BigInt! # uint256

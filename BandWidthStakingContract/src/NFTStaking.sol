@@ -850,41 +850,6 @@ contract BandWidthStaking is
             calcPoint * ToolLib.LnUint256(reservedAmount > BASE_RESERVE_AMOUNT ? reservedAmount : BASE_RESERVE_AMOUNT);
     }
 
-    function _joinStaking1(string memory machineId, uint256 calcPoint, uint256 reserveAmount) internal {
-        StakeInfo storage stakeInfo = machineId2StakeInfos[machineId];
-
-        uint256 oldLnReserved = ToolLib.LnUint256(
-            stakeInfo.reservedAmount > BASE_RESERVE_AMOUNT ? stakeInfo.reservedAmount : BASE_RESERVE_AMOUNT
-        );
-
-        uint256 machineShares = stakeInfo.calcPoint * oldLnReserved;
-
-        uint256 newLnReserved =
-            ToolLib.LnUint256(reserveAmount > BASE_RESERVE_AMOUNT ? reserveAmount : BASE_RESERVE_AMOUNT);
-
-        totalAdjustUnit -= stakeInfo.calcPoint * oldLnReserved;
-        totalAdjustUnit += calcPoint * newLnReserved;
-
-        region2totalAdjustUnit[stakeInfo.region] -= stakeInfo.calcPoint * oldLnReserved;
-        region2totalAdjustUnit[stakeInfo.region] += calcPoint * newLnReserved;
-
-        // update machine rewards
-        //        _updateMachineRewards(machineId, machineShares, totalDistributedRewardAmount, totalBurnedRewardAmount);
-        uint256 regionRewardsPerSeconds = getRegionRewardsPerSeconds(stakeInfo.region);
-        _updateMachineRewardsOfRegion(machineId, machineShares, stakeInfo.region, regionRewardsPerSeconds);
-
-        totalCalcPoint = totalCalcPoint - stakeInfo.calcPoint + calcPoint;
-
-        stakeInfo.calcPoint = calcPoint;
-        if (reserveAmount > stakeInfo.reservedAmount) {
-            //            rewardToken.transferFrom(stakeInfo.holder, address(this), reserveAmount - stakeInfo.reservedAmount);
-        }
-        if (reserveAmount != stakeInfo.reservedAmount) {
-            totalReservedAmount = totalReservedAmount + reserveAmount - stakeInfo.reservedAmount;
-            stakeInfo.reservedAmount = reserveAmount;
-        }
-    }
-
     function _joinStaking(string memory machineId, uint256 calcPoint, uint256 reserveAmount) internal {
         StakeInfo storage stakeInfo = machineId2StakeInfos[machineId];
 

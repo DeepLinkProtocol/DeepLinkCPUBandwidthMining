@@ -66,9 +66,7 @@
 ```graphql
     type RegionInfo @entity {
         id: Bytes!
-        region: String!  // 区域名字 *
-        totalMachineCount: BigInt! # uint256 // 区域内机器总数(质押过就算)
-        totalBandwidth: BigInt! # uint256  // 区域内总带宽(质押过就算)
+        region: String!   // 区域名字 *
         stakingMachineCount: BigInt! # uint256 // 区域内质押中的机器总数 *
         stakingBandwidth: BigInt! # uint256  // 区域内质押中的总带宽 *
         reservedAmount: BigInt! # uint256  // 区域内质押的总金额 *
