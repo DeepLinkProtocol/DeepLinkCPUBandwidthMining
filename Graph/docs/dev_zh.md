@@ -43,8 +43,6 @@
         totalCalcPoint: BigInt! # uint256  总的机器原始算力 (不包含质押nft/租用等行为 对算力的增幅)
         totalCalcPointWithNFT: BigInt! # uint256  总的机器算力 (包含质押nft 对算力的增幅)
         fullTotalCalcPoint: BigInt! # uint256 总的机器算力 (包含质押nft/租用等行为 对算力的增幅)
-        totalGPUCount: BigInt! # uint256 gpu数量
-        rentedGPUCount: BigInt! # uint256 被租用的gpu数量
         totalReservedAmount: BigInt! # uint256 质押的总金额
         burnedRentFee: BigInt! # uint256 已销毁的租用费用
         blockNumber: BigInt!
@@ -60,6 +58,7 @@
 
         totalClaimedRewardAmount: BigInt! # uint256 已领取的总奖励金额
         totalReleasedRewardAmount: BigInt! # uint256 已释放的奖励金额
+        region: String! # string 区域名字
     }
 ```
 
