@@ -5,6 +5,7 @@ type StateSummary @entity {
   totalCalcPointPoolCount: BigInt! # uint256
   totalBurnedReward: BigInt! # uint256
   totalReservedAmount: BigInt! # uint256
+  totalReleasedReward: BigInt! # uint256
   totalCalcPoint: BigInt! # uint256
   totalRegionCount: BigInt! # uint256
 }

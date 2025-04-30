@@ -22,6 +22,12 @@ import {
 } from '../generated/schema';
 
 export function handleClaimed(event: ClaimedEvent): void {
+  let stateSummary = StateSummary.load(Bytes.empty());
+  if (stateSummary == null) {
+    return
+  }
+  stateSummary.totalReleasedReward = stateSummary.totalReleasedReward.plus(event.params.moveToUserWalletAmount);
+
   let id = Bytes.fromUTF8(event.params.machineId.toString());
   let machineInfo = MachineInfo.load(id);
   if (machineInfo == null) {
@@ -88,7 +94,7 @@ export function handleMoveToReserveAmount(
   if (stateSummary == null) {
     return;
   }
-
+  stateSummary.totalReleasedReward = stateSummary.totalReleasedReward.plus(event.params.amount);
   stateSummary.totalReservedAmount = stateSummary.totalReservedAmount.plus(
     event.params.amount
   );
@@ -299,6 +305,7 @@ export function handleStaked(event: StakedEvent): void {
     stateSummary.totalReservedAmount = BigInt.fromI32(0);
     stateSummary.totalCalcPoint = BigInt.fromI32(0);
     stateSummary.totalRegionCount = BigInt.fromI32(0);
+    stateSummary.totalReleasedReward = BigInt.fromI32(0);
   }
   if (isNewMachine) {
     stateSummary.totalGPUCount = stateSummary.totalGPUCount.plus(

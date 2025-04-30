@@ -701,21 +701,12 @@ contract BandWidthStaking is
         return (availableRewardAmount, canClaimAmount, lockedAmount, claimedAmount);
     }
 
-    function claimAll() external nonReentrant {
-        string[] memory machineIds = holder2MachineIds[msg.sender];
-        for (uint256 i = 0; i < machineIds.length; i++) {
-            claim(machineIds[i]);
-        }
-    }
 
     function claim(string memory machineId) public nonReentrant {
-        address stakeholder = msg.sender;
-        StakeInfo storage stakeInfo = machineId2StakeInfos[machineId];
-
         require(!isInSlashing(machineId), "machine should restake and paid slash before claim");
 
-        require(stakeInfo.holder == stakeholder, "not stakeholder");
-        //        require(block.timestamp - stakeInfo.lastClaimAtTimestamp >= 1 days, "last claim less than 1 day");
+        StakeInfo storage stakeInfo = machineId2StakeInfos[machineId];
+        require(stakeInfo.holder == msg.sender, "not stakeholder");
 
         _claim(machineId);
     }
