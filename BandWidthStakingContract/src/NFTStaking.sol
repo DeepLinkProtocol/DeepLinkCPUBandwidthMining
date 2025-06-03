@@ -663,6 +663,7 @@ contract BandWidthStaking is
         }
 
         if (canClaimAmount > 0) {
+            require(rewardToken.balanceOf(address(this)) - totalReservedAmount >= canClaimAmount, "reward token balance not enough");
             rewardToken.transfer(stakeholder, canClaimAmount);
         }
 
