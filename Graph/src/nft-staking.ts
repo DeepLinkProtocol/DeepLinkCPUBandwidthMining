@@ -18,26 +18,21 @@ import {
   StateSummary,
   StakeHolder,
   MachineInfo,
-  RegionInfo, RegionBurnInfo, RegionDayBurnInfo
+  RegionInfo, RegionBurnInfo,
 } from '../generated/schema';
 
 export function handleClaimed(event: ClaimedEvent): void {
-  let stateSummary = StateSummary.load(Bytes.empty());
-  if (stateSummary == null) {
-    return
-  }
-  stateSummary.totalReleasedReward = stateSummary.totalReleasedReward.plus(event.params.moveToUserWalletAmount);
-
   let id = Bytes.fromUTF8(event.params.machineId.toString());
   let machineInfo = MachineInfo.load(id);
   if (machineInfo == null) {
     return;
   }
 
-  machineInfo.totalReleasedRewardAmount = machineInfo.totalReleasedRewardAmount.plus(event.params.moveToUserWalletAmount);
-  machineInfo.totalClaimedRewardAmount = machineInfo.totalClaimedRewardAmount.plus(event.params.totalRewardAmount);
-
-  machineInfo.save();
+  machineInfo.totalClaimedRewardAmount =
+    machineInfo.totalClaimedRewardAmount.plus(event.params.totalRewardAmount);
+  machineInfo.totalReleasedRewardAmount = machineInfo.totalReleasedRewardAmount
+    .plus(event.params.moveToUserWalletAmount)
+    .plus(event.params.moveToReservedAmount);
 
   let stakeholder = StakeHolder.load(
     Bytes.fromHexString(machineInfo.holder.toHexString())
@@ -68,9 +63,6 @@ export function handleMoveToReserveAmount(
   machineInfo.totalReservedAmount = machineInfo.totalReservedAmount.plus(
     event.params.amount
   );
-  machineInfo.totalReleasedRewardAmount = machineInfo.totalReleasedRewardAmount.plus(
-    event.params.amount
-  );
   machineInfo.save();
 
   let stakeholder = StakeHolder.load(
@@ -83,18 +75,13 @@ export function handleMoveToReserveAmount(
   stakeholder.totalReservedAmount = stakeholder.totalReservedAmount.plus(
     event.params.amount
   );
-
-  stakeholder.totalReleasedRewardAmount = stakeholder.totalReleasedRewardAmount.plus(
-    event.params.amount
-  )
-
   stakeholder.save();
 
   let stateSummary = StateSummary.load(Bytes.empty());
   if (stateSummary == null) {
     return;
   }
-  stateSummary.totalReleasedReward = stateSummary.totalReleasedReward.plus(event.params.amount);
+
   stateSummary.totalReservedAmount = stateSummary.totalReservedAmount.plus(
     event.params.amount
   );
@@ -206,7 +193,6 @@ export function handleStaked(event: StakedEvent): void {
     machineInfo.blockTimestamp = event.block.timestamp;
     machineInfo.transactionHash = event.transaction.hash;
     machineInfo.machineId = event.params.machineId;
-    machineInfo.holder = event.params.stakeholder;
     machineInfo.totalReservedAmount = BigInt.fromI32(0);
     machineInfo.region = "";
     machineInfo.totalClaimedRewardAmount = BigInt.fromI32(0);
@@ -222,7 +208,7 @@ export function handleStaked(event: StakedEvent): void {
   }
 
   machineInfo.region = event.params.region
-
+  machineInfo.holder = event.params.stakeholder;
   machineInfo.totalCalcPoint = event.params.originCalcPoint;
   machineInfo.totalCalcPointWithNFT = event.params.calcPoint;
   machineInfo.fullTotalCalcPoint = event.params.calcPoint;
@@ -275,6 +261,8 @@ export function handleStaked(event: StakedEvent): void {
     regionInfo = new RegionInfo(Bytes.fromUTF8(machineInfo.region));
     regionInfo.region = machineInfo.region;
     regionInfo.stakingMachineCount = BigInt.fromI32(0);
+    regionInfo.totalMachineCount = BigInt.fromI32(0);
+    regionInfo.totalBandwidth = BigInt.fromI32(0);
     regionInfo.stakingBandwidth = BigInt.fromI32(0);
     regionInfo.reservedAmount = BigInt.fromI32(0);
     regionInfo.burnedAmount = BigInt.fromI32(0);
@@ -289,7 +277,14 @@ export function handleStaked(event: StakedEvent): void {
     machineInfo.totalCalcPoint
   );
 
-
+  if (isNewMachine) {
+    regionInfo.totalMachineCount = regionInfo.totalMachineCount.plus(
+      BigInt.fromI32(1)
+    );
+    regionInfo.totalBandwidth = regionInfo.totalBandwidth.plus(
+      machineInfo.totalCalcPoint
+    );
+  }
   regionInfo.save();
 
   machineInfo.regionRef = regionInfo.id;
@@ -305,7 +300,6 @@ export function handleStaked(event: StakedEvent): void {
     stateSummary.totalReservedAmount = BigInt.fromI32(0);
     stateSummary.totalCalcPoint = BigInt.fromI32(0);
     stateSummary.totalRegionCount = BigInt.fromI32(0);
-    stateSummary.totalReleasedReward = BigInt.fromI32(0);
   }
   if (isNewMachine) {
     stateSummary.totalGPUCount = stateSummary.totalGPUCount.plus(
@@ -412,28 +406,20 @@ export function handleUnstaked(event: UnstakedEvent): void {
   machineInfo.save();
 }
 
-// export function handleBurnedInactiveRegionRewards(
-//   event: BurnedInactiveRegionRewardsEvent
-// ): void {
-//   let stateSummary = StateSummary.load(Bytes.empty());
-//   if (stateSummary == null) {
-//     return;
-//   }
-//
-//   stateSummary.totalBurnedReward = stateSummary.totalBurnedReward.plus(
-//     event.params.amount
-//   );
-//   stateSummary.save();
-// }
+export function handleBurnedInactiveRegionRewards(
+  event: BurnedInactiveRegionRewardsEvent
+): void {
+  let stateSummary = StateSummary.load(Bytes.empty());
+  if (stateSummary == null) {
+    return;
+  }
 
-
-function timestampToDateString(timestamp: BigInt): string {
-  let date = new Date(timestamp.toI64() * 1000)
-  let year = date.getUTCFullYear()
-  let month = (date.getUTCMonth() + 1).toString().padStart(2, '0')
-  let day = date.getUTCDate().toString().padStart(2, '0')
-  return year.toString() + '-' + month + '-' + day
+  stateSummary.totalBurnedReward = stateSummary.totalBurnedReward.plus(
+    event.params.amount
+  );
+  stateSummary.save();
 }
+
 
 export function handleBurnedInactiveSingleRegionRewards(event: BurnedInactiveSingleRegionRewardsEvent): void {
   let regionInfo = RegionInfo.load(Bytes.fromUTF8(event.params.region));
@@ -441,9 +427,12 @@ export function handleBurnedInactiveSingleRegionRewards(event: BurnedInactiveSin
     regionInfo = new RegionInfo(Bytes.fromUTF8(event.params.region));
     regionInfo.region = event.params.region;
     regionInfo.stakingMachineCount = BigInt.fromI32(0);
+    regionInfo.totalMachineCount = BigInt.fromI32(0);
+    regionInfo.totalBandwidth = BigInt.fromI32(0);
     regionInfo.stakingBandwidth = BigInt.fromI32(0);
     regionInfo.reservedAmount = BigInt.fromI32(0);
     regionInfo.burnedAmount = BigInt.fromI32(0);
+    return
   }
 
   regionInfo.burnedAmount = regionInfo.burnedAmount.plus(
@@ -452,35 +441,11 @@ export function handleBurnedInactiveSingleRegionRewards(event: BurnedInactiveSin
 
   regionInfo.save();
 
-  let stateSummary = StateSummary.load(Bytes.empty());
-  if (stateSummary == null) {
-    return;
-  }
-  stateSummary.totalBurnedReward = stateSummary.totalBurnedReward.plus(event.params.amount)
-  stateSummary.save()
-
-
-  // let regionBurnInfo = new RegionBurnInfo(event.transaction.hash.concatI32(event.logIndex.toI32()))
-  // regionBurnInfo.region = event.params.region
-  // regionBurnInfo.burnedAmount = event.params.amount
-  // regionBurnInfo.blockTimestamp = event.block.timestamp
-  // regionBurnInfo.transactionHash = event.transaction.hash
-  // regionBurnInfo.save()
-
-
-  // let today = timestampToDateString(event.block.timestamp)
-  // let dayBurnInfoId = Bytes.fromUTF8(today + '-' + event.params.region)
-  // let regionDayBurnInfo = RegionDayBurnInfo.load(dayBurnInfoId)
-  // if (regionDayBurnInfo == null) {
-  //   regionDayBurnInfo = new RegionDayBurnInfo(dayBurnInfoId)
-  //   regionDayBurnInfo.region = event.params.region
-  //   regionDayBurnInfo.burnedAmount = event.params.amount
-  //   regionDayBurnInfo.date = today
-  //   regionDayBurnInfo.save()
-  //   return
-  // }
-  // regionDayBurnInfo.burnedAmount = regionDayBurnInfo.burnedAmount.plus(event.params.amount)
-
-  // regionDayBurnInfo.save()
+  let regionBurnInfo = new RegionBurnInfo(event.transaction.hash)
+  regionBurnInfo.region = event.params.region
+  regionBurnInfo.burnedAmount = event.params.amount
+  regionBurnInfo.blockTimestamp = event.block.timestamp
+  regionBurnInfo.transactionHash = event.transaction.hash
+  regionBurnInfo.save()
 
 }
