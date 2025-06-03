@@ -5,7 +5,6 @@ type StateSummary @entity {
   totalCalcPointPoolCount: BigInt! # uint256
   totalBurnedReward: BigInt! # uint256
   totalReservedAmount: BigInt! # uint256
-  totalReleasedReward: BigInt! # uint256
   totalCalcPoint: BigInt! # uint256
   totalRegionCount: BigInt! # uint256
 }
@@ -53,6 +52,8 @@ type MachineInfo @entity {
 type RegionInfo @entity {
   id: Bytes!
   region: String!
+  totalMachineCount: BigInt! # uint256
+  totalBandwidth: BigInt! # uint256
   stakingMachineCount: BigInt! # uint256
   stakingBandwidth: BigInt! # uint256
   reservedAmount: BigInt! # uint256
@@ -68,9 +69,3 @@ type RegionBurnInfo @entity{
   transactionHash: Bytes!
 }
 
-type RegionDayBurnInfo @entity {
-  id: Bytes!
-  region: String!
-  burnedAmount: BigInt! # uint256
-  date: String!
-}
