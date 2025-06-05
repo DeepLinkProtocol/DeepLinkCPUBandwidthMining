@@ -33,6 +33,7 @@ export function handleClaimed(event: ClaimedEvent): void {
   machineInfo.totalReleasedRewardAmount = machineInfo.totalReleasedRewardAmount
     .plus(event.params.moveToUserWalletAmount)
     .plus(event.params.moveToReservedAmount);
+  machineInfo.save();
 
   let stakeholder = StakeHolder.load(
     Bytes.fromHexString(machineInfo.holder.toHexString())
