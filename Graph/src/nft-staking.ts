@@ -1,8 +1,6 @@
 import { BigInt, Bytes } from '@graphprotocol/graph-ts';
 import {
   Claimed as ClaimedEvent,
-  EndRentMachine as EndRentMachineEvent,
-  Initialized as InitializedEvent,
   OwnershipTransferred as OwnershipTransferredEvent,
   PaySlash as PaySlashEvent,
   RentMachine as RentMachineEvent,
@@ -12,7 +10,7 @@ import {
   Unstaked as UnstakedEvent,
   MoveToReserveAmount as MoveToReserveAmountEvent,
   BurnedInactiveRegionRewards as BurnedInactiveRegionRewardsEvent,
-  BurnedInactiveSingleRegionRewards as BurnedInactiveSingleRegionRewardsEvent,
+  BurnedInactiveSingleRegionRewards as BurnedInactiveSingleRegionRewardsEvent, UpdateRegion,
 } from '../generated/NFTStaking/NFTStaking';
 import {
   StateSummary,
@@ -388,6 +386,7 @@ export function handleUnstaked(event: UnstakedEvent): void {
   stateSummary.totalStakingGPUCount = stateSummary.totalStakingGPUCount.minus(
     BigInt.fromU32(1)
   );
+
   if (stakeholder.totalCalcPoint.toU32() == 0) {
     stateSummary.totalCalcPointPoolCount =
       stateSummary.totalCalcPointPoolCount.minus(BigInt.fromI32(1));
@@ -450,3 +449,81 @@ export function handleBurnedInactiveSingleRegionRewards(event: BurnedInactiveSin
   regionBurnInfo.save()
 
 }
+
+// export function handleUpdateRegion(event: UpdateRegion): void {
+//   let id = Bytes.fromUTF8(event.params.machineId.toString());
+//   let machineInfo = MachineInfo.load(id);
+//   if (machineInfo == null) {
+//     return;
+//   }
+//
+//   // machine region handle
+//   const oldRegion = machineInfo.region
+//   machineInfo.region = event.params.region;
+//
+//   // new region handle
+//   let isNewRegion: boolean = false;
+//   let newRegionInfo = RegionInfo.load(Bytes.fromUTF8(event.params.region));
+//   if (newRegionInfo == null) {
+//     isNewRegion = true;
+//     newRegionInfo = new RegionInfo(Bytes.fromUTF8(event.params.region));
+//     newRegionInfo.region = event.params.region;
+//     newRegionInfo.stakingMachineCount = BigInt.fromI32(0);
+//     newRegionInfo.totalMachineCount = BigInt.fromI32(0);
+//     newRegionInfo.totalBandwidth = BigInt.fromI32(0);
+//     newRegionInfo.stakingBandwidth = BigInt.fromI32(0);
+//     newRegionInfo.reservedAmount = BigInt.fromI32(0);
+//     newRegionInfo.burnedAmount = BigInt.fromI32(0);
+//   }
+//
+//   newRegionInfo.stakingMachineCount = newRegionInfo.stakingMachineCount.plus(
+//     BigInt.fromI32(1)
+//   );
+//
+//   newRegionInfo.stakingBandwidth = newRegionInfo.stakingBandwidth.plus(
+//     machineInfo.totalCalcPoint
+//   );
+//
+//   newRegionInfo.totalMachineCount = newRegionInfo.totalMachineCount.plus(
+//       BigInt.fromI32(1)
+//   );
+//
+//   newRegionInfo.totalBandwidth = newRegionInfo.totalBandwidth.plus(
+//       machineInfo.totalCalcPoint
+//   );
+//
+//   newRegionInfo.reservedAmount = newRegionInfo.reservedAmount.plus(
+//     machineInfo.totalReservedAmount
+//   );
+//
+//   newRegionInfo.save();
+//
+//   machineInfo.regionRef = newRegionInfo.id;
+//   machineInfo.save();
+//
+//
+//   // old region handle
+//   let oldRegionInfo = RegionInfo.load(Bytes.fromUTF8(oldRegion));
+//   if (oldRegionInfo == null) {
+//     return
+//   }
+//
+//   oldRegionInfo.stakingBandwidth = oldRegionInfo.stakingBandwidth.minus(
+//     machineInfo.totalCalcPoint
+//   );
+//
+//   oldRegionInfo.stakingMachineCount = oldRegionInfo.stakingMachineCount.minus(
+//     BigInt.fromI32(1)
+//   );
+//
+//   oldRegionInfo.totalBandwidth = oldRegionInfo.totalBandwidth.minus(
+//     machineInfo.totalCalcPoint
+//   );
+//
+//   oldRegionInfo.reservedAmount = oldRegionInfo.reservedAmount.minus(
+//     machineInfo.totalReservedAmount
+//   )
+//
+//   oldRegionInfo.save();
+//
+// }

@@ -123,6 +123,7 @@ contract BandWidthStaking is
     mapping(string => RegionStakeInfo) public region2StakeInfo;
 
     bool public paused;
+    mapping(string => string) public machine2PreRegion;
 
     event Staked(
         address indexed stakeholder, string machineId, uint256 originCalcPoint, uint256 calcPoint, string region
@@ -395,6 +396,14 @@ contract BandWidthStaking is
         require(totalValue == totalRegionValue, "total value is not correct");
     }
 
+    function setRegion(string calldata machineId, string calldata newRegion) external onlyOwner {
+        StakeInfo storage stakeInfo = machineId2StakeInfos[machineId];
+        require(stakeInfo.nftCount > 0, "not in staking");
+        require(region2Value[newRegion] > 0, "invalid region");
+        require(keccak256(abi.encodePacked(newRegion)) != keccak256(abi.encodePacked(stakeInfo.region)), "same region");
+        machine2PreRegion[machineId] = newRegion;
+    }
+
     function inactiveRegionRewards() public returns (uint256) {
         uint256 durationInactiveReward = 0;
 
@@ -535,6 +544,11 @@ contract BandWidthStaking is
 
         uint256 currentTime = block.timestamp;
 
+        string memory preRegin = machine2PreRegion[machineId];
+        if (keccak256(abi.encodePacked(preRegin))!= keccak256(abi.encodePacked(""))){
+            region = preRegin;
+        }
+
         nftToken.safeBatchTransferFrom(stakeholder, address(this), nftTokenIds, nftTokenIdBalances, "transfer");
         uint256 stakeEndAt = 0;
         machineId2StakeInfos[machineId] = StakeInfo({
@@ -553,6 +567,8 @@ contract BandWidthStaking is
             region: region,
             originCalcPoint: bandwidth
         });
+
+        machine2PreRegion[machineId] = "";
 
         //        machineId2StakeUnitRewards[machineId].lastAccumulatedPerShare = rewardsPerCalcPoint.accumulatedPerShare;
 
@@ -663,7 +679,10 @@ contract BandWidthStaking is
         }
 
         if (canClaimAmount > 0) {
-            require(rewardToken.balanceOf(address(this)) - totalReservedAmount >= canClaimAmount, "reward token balance not enough");
+            require(
+                rewardToken.balanceOf(address(this)) - totalReservedAmount >= canClaimAmount,
+                "reward token balance not enough"
+            );
             rewardToken.transfer(stakeholder, canClaimAmount);
         }
 
@@ -701,7 +720,6 @@ contract BandWidthStaking is
         }
         return (availableRewardAmount, canClaimAmount, lockedAmount, claimedAmount);
     }
-
 
     function claim(string memory machineId) public nonReentrant {
         require(!isInSlashing(machineId), "machine should restake and paid slash before claim");
