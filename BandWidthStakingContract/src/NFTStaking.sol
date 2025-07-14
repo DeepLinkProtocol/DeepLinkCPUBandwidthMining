@@ -951,18 +951,6 @@ contract BandWidthStaking is
         return slashInfo;
     }
 
-    //    function paidSlash(string memory machineId) internal {
-    //        SlashInfo[] storage slashInfos = machineId2SlashInfos[machineId];
-    //        for (uint256 i = 0; i < slashInfos.length; i++) {
-    //            if (slashInfos[i].paid) {
-    //                return;
-    //            }
-    //            if (keccak256(abi.encodePacked(slashInfos[i].machineId)) == keccak256(abi.encodePacked(machineId))) {
-    //                slashInfos[i].paid = true;
-    //                emit PaidSlash(machineId, BASE_RESERVE_AMOUNT);
-    //            }
-    //        }
-    //    }
 
     function notify(NotifyType tp, string calldata machineId) external onlyDBCAIContract returns (bool) {
         if (tp == NotifyType.ContractRegister) {
@@ -1010,75 +998,6 @@ contract BandWidthStaking is
 
         return machineInfo;
     }
-    // function stake1(
-    //     address stakeholder,
-    //     string calldata machineId,
-    //     uint256[] calldata nftTokenIds,
-    //     uint256[] calldata nftTokenIdBalances
-    // ) external nonReentrant {
-    //     (
-    //         address machineOwner,
-    //         ,
-    //         uint256 cpuCores,
-    //         uint256 machineMem,
-    //         string memory region,
-    //         uint256 hdd,
-    //         uint256 bandwidth
-    //     ) = dbcAIContract.machineBandWidthInfos(machineId);
-
-    //     uint256 calcPoint = bandwidth;
-    //     require(dbcAIContract.freeGpuAmount(machineId) >= 1, "machine not stake enough dbc");
-    //     require(nftTokenIds.length == nftTokenIdBalances.length, "nft token ids and balances length not match");
-    //     require(region2Value[region] > 0, "machine region not found");
-    //     require(calcPoint >= 10, "machine calc point not found");
-    //     require(cpuCores >= 1, "machine cpu cores not found");
-    //     require(machineMem >= 2, "machine memory not enough");
-    //     require(hdd >= 30, "machine hdd not enough");
-    //     require(machineOwner == stakeholder, "machine owner not match");
-
-    //     (bool isOnline, bool isRegistered) = dbcAIContract.getMachineState(machineId, PROJECT_NAME, STAKING_TYPE);
-    //     require(isOnline && isRegistered, "machine not online or not registered");
-    //     require(getDailyRewardAmount() > 0, "daily reward amount used out");
-    //     require(!isStaking(machineId), "machine already staked");
-    //     require(nftTokenIds.length > 0, "nft token ids is empty");
-    //     uint256 nftCount = getNFTCount(nftTokenIdBalances);
-    //     require(nftCount <= getMaxNFTCountCanStake(), "nft count must be less than limit");
-    //     uint256 originCalcPoint = calcPoint;
-    //     calcPoint = calcPoint * nftCount;
-
-    //     uint256 currentTime = block.timestamp;
-
-    //     nftToken.safeBatchTransferFrom(stakeholder, address(this), nftTokenIds, nftTokenIdBalances, "transfer");
-    //     uint256 stakeEndAt = 0;
-    //     machineId2StakeInfos[machineId] = StakeInfo({
-    //         startAtTimestamp: currentTime,
-    //         lastClaimAtTimestamp: currentTime,
-    //         endAtTimestamp: stakeEndAt,
-    //         calcPoint: 0,
-    //         reservedAmount: 0,
-    //         nftTokenIds: nftTokenIds,
-    //         tokenIdBalances: nftTokenIdBalances,
-    //         nftCount: nftCount,
-    //         holder: stakeholder,
-    //         claimedAmount: 0,
-    //         isRentedByUser: false,
-    //         nextRenterCanRentAt: currentTime,
-    //         region: region,
-    //         originCalcPoint: bandwidth
-    //     });
-
-    //     //        machineId2StakeUnitRewards[machineId].lastAccumulatedPerShare = rewardsPerCalcPoint.accumulatedPerShare;
-
-    //     _joinStaking(machineId, calcPoint, 0);
-    //     _tryInitMachineLockRewardInfo(machineId, currentTime);
-
-    //     burnInactiveRegionRewards();
-    //     holder2MachineIds[stakeholder].push(machineId);
-    //     RegionStakeInfo storage regionStakeInfo = region2StakeInfo[region];
-    //     regionStakeInfo.stakedMachineCount += 1;
-    //     dbcAIContract.reportStakingStatus(PROJECT_NAME, StakingType.Free, machineId, 1, true);
-    //     emit Staked(stakeholder, machineId, originCalcPoint, calcPoint, region);
-    // }
 
     function getRegionDailyRewardAmount(string memory _region) public view returns (uint256) {
         uint256 regionValue = region2Value[_region];
