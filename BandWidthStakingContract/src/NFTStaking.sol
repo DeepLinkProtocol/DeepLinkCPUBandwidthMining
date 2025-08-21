@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+// Import necessary OpenZeppelin contracts for upgradeable functionality
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 import "@openzeppelin/contracts/token/ERC1155/IERC1155Receiver.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+// Import custom interfaces for reward token, rent contract, and DBC AI contract
 import "./interface/IRewardToken.sol";
 import "./interface/IRentContract.sol";
 import "./interface/IDBCAIContract.sol";
@@ -16,7 +18,12 @@ import "@openzeppelin/contracts/utils/math/Math.sol";
 import "./library/RewardCalculatorLib.sol";
 import {RewardCalculator} from "./RewardCalculater.sol";
 
-/// @custom:oz-upgrades-from OldBandWidthStaking
+/**
+ * @title BandWidthStaking
+ * @dev A staking contract for bandwidth sharing with NFT-based rewards
+ * @notice This contract allows users to stake NFTs to earn rewards based on machine bandwidth contribution
+ * @custom:oz-upgrades-from OldBandWidthStaking
+ */
 contract BandWidthStaking is
     RewardCalculator,
     Initializable,
@@ -25,112 +32,143 @@ contract BandWidthStaking is
     UUPSUpgradeable,
     IERC1155Receiver
 {
-    string public constant PROJECT_NAME = "DeepLink BandWidth";
-    uint8 public constant SECONDS_PER_BLOCK = 6;
-    uint256 public constant BASE_RESERVE_AMOUNT = 10_000 ether;
-    StakingType public constant STAKING_TYPE = StakingType.Free;
+    // Project constants
+    string public constant PROJECT_NAME = "DeepLink BandWidth"; // Name of the project
+    uint8 public constant SECONDS_PER_BLOCK = 6; // Average seconds per block
+    uint256 public constant BASE_RESERVE_AMOUNT = 10_000 ether; // Base amount required for staking
+    StakingType public constant STAKING_TYPE = StakingType.Free; // Default staking type
 
-    IDBCAIContract public dbcAIContract;
-    IERC1155 public nftToken;
-    IRewardToken public rewardToken;
+    // Contract interfaces
+    IDBCAIContract public dbcAIContract; // Interface to DBC AI contract for machine management
+    IERC1155 public nftToken; // NFT token contract for staking
+    IRewardToken public rewardToken; // Reward token contract
 
-    address public burnAddress;
-    address public slashPayToAddress;
-    address public canUpgradeAddress;
+    // Administrative addresses
+    address public burnAddress; // Address where burned tokens are sent
+    address public slashPayToAddress; // Address to receive slashed amounts
+    address public canUpgradeAddress; // Address authorized to upgrade the contract
 
-    bool public registered;
-    uint256 public totalRegionValue;
-    uint256 public totalDistributedRewardAmount;
-    uint256 public totalBurnedRewardAmount;
-    uint256 public totalReservedAmount;
+    // Contract state variables
+    bool public registered; // Whether the contract is registered
+    uint256 public totalRegionValue; // Total value across all regions
+    uint256 public totalDistributedRewardAmount; // Total rewards distributed
+    uint256 public totalBurnedRewardAmount; // Total rewards burned
+    uint256 public totalReservedAmount; // Total amount reserved
 
-    uint256 public totalCalcPoint;
+    uint256 public totalCalcPoint; // Total calculation points across all machines
 
-    uint256 public lastBurnTime;
-    string[] public regions;
+    uint256 public lastBurnTime; // Timestamp of last burn operation
+    string[] public regions; // Array of supported regions
 
+    /**
+     * @dev Enum defining different types of staking periods
+     */
     enum StakingType {
-        ShortTerm,
-        LongTerm,
-        Free
+        ShortTerm,  // Short-term staking
+        LongTerm,   // Long-term staking
+        Free        // Free staking (no time restriction)
     }
 
+    /**
+     * @dev Enum for different notification types from external contracts
+     */
     enum NotifyType {
-        ContractRegister,
-        MachineRegister,
-        MachineUnregister,
-        MachineOnline,
-        MachineOffline
+        ContractRegister,   // Contract registration notification
+        MachineRegister,    // Machine registration notification
+        MachineUnregister,  // Machine unregistration notification
+        MachineOnline,      // Machine online notification
+        MachineOffline      // Machine offline notification
     }
 
+    /**
+     * @dev Structure to store information about slashing events
+     */
     struct SlashInfo {
-        address stakeHolder;
-        string machineId;
-        uint256 slashAmount;
-        uint256 createdAt;
-        bool paid;
+        address stakeHolder;    // Address of the stake holder being slashed
+        string machineId;       // ID of the machine being slashed
+        uint256 slashAmount;    // Amount to be slashed
+        uint256 createdAt;      // Timestamp when slash was created
+        bool paid;              // Whether the slash has been paid
     }
 
+    /**
+     * @dev Structure for approved report information
+     */
     struct ApprovedReportInfo {
-        address slashToPayAddress;
+        address slashToPayAddress;  // Address to receive slash payment
     }
 
+    /**
+     * @dev Structure to store comprehensive staking information for each machine
+     */
     struct StakeInfo {
-        address holder;
-        uint256 startAtTimestamp;
-        uint256 lastClaimAtTimestamp;
-        uint256 endAtTimestamp;
-        uint256 calcPoint;
-        uint256 reservedAmount;
-        uint256[] nftTokenIds;
-        uint256[] tokenIdBalances;
-        uint256 nftCount;
-        uint256 claimedAmount;
-        bool isRentedByUser;
-        uint256 nextRenterCanRentAt;
-        string region;
-        uint256 originCalcPoint;
+        address holder;                 // Address of the stake holder
+        uint256 startAtTimestamp;       // Timestamp when staking started
+        uint256 lastClaimAtTimestamp;   // Timestamp of last reward claim
+        uint256 endAtTimestamp;         // Timestamp when staking ends (0 for indefinite)
+        uint256 calcPoint;              // Calculation points for reward calculation
+        uint256 reservedAmount;         // Amount reserved for this stake
+        uint256[] nftTokenIds;          // Array of staked NFT token IDs
+        uint256[] tokenIdBalances;      // Array of NFT token balances
+        uint256 nftCount;               // Total count of NFTs staked
+        uint256 claimedAmount;          // Total amount of rewards claimed
+        bool isRentedByUser;            // Whether the machine is currently rented
+        uint256 nextRenterCanRentAt;    // Timestamp when next renter can rent
+        string region;                  // Geographic region of the machine
+        uint256 originCalcPoint;        // Original calculation points before NFT multiplier
     }
 
+    /**
+     * @dev Structure to track staking information per region
+     */
     struct RegionStakeInfo {
-        uint256 stakedMachineCount;
-        uint256 lastUnStakeTime;
+        uint256 stakedMachineCount;     // Number of machines staked in this region
+        uint256 lastUnStakeTime;        // Timestamp of last unstaking in this region
     }
 
+    /**
+     * @dev Structure for machine information used by DBC scan
+     */
     struct MachineInfoForDBCScan {
-        bool isStaking;
-        string region;
-        uint256 hdd;
-        uint256 bandwidth;
-        uint256 mem;
-        uint256 cpuCors;
-        string projectName;
-        uint256 totalRewardAmount;
-        uint256 claimedRewardAmount;
-        uint256 lockedRewardAmount;
-        uint256 canClaimRewardAmount;
+        bool isStaking;                 // Whether the machine is currently staking
+        string region;                  // Geographic region of the machine
+        uint256 hdd;                    // Hard disk drive capacity
+        uint256 bandwidth;              // Network bandwidth capacity
+        uint256 mem;                    // Memory capacity
+        uint256 cpuCors;                // Number of CPU cores
+        string projectName;             // Name of the project
+        uint256 totalRewardAmount;      // Total rewards earned
+        uint256 claimedRewardAmount;    // Total rewards claimed
+        uint256 lockedRewardAmount;     // Amount of rewards locked
+        uint256 canClaimRewardAmount;   // Amount of rewards available to claim
     }
 
-    mapping(uint256 => SlashInfo) public slashId2SlashInfo;
-    mapping(string => uint256) public machine2LastSlashId;
-    mapping(address => bool) public dlcClientWalletAddress;
+    // Mappings for slash management
+    mapping(uint256 => SlashInfo) public slashId2SlashInfo;        // Maps slash ID to slash information
+    mapping(string => uint256) public machine2LastSlashId;          // Maps machine ID to last slash ID
+    mapping(address => bool) public dlcClientWalletAddress;         // Maps addresses to DLC client wallet status
 
-    mapping(address => string[]) public holder2MachineIds;
+    // Mappings for stake holder management
+    mapping(address => string[]) public holder2MachineIds;          // Maps holder address to their machine IDs
 
-    mapping(string => StakeInfo) public machineId2StakeInfos;
+    // Core staking mappings
+    mapping(string => StakeInfo) public machineId2StakeInfos;       // Maps machine ID to staking information
 
-    mapping(string => uint256) public region2Value;
-    mapping(string => RegionStakeInfo) public region2StakeInfo;
+    // Region management mappings
+    mapping(string => uint256) public region2Value;                 // Maps region name to its value weight
+    mapping(string => RegionStakeInfo) public region2StakeInfo;     // Maps region to staking statistics
 
-    bool public paused;
-    mapping(string => string) public machine2PreRegion;
+    // Contract control variables
+    bool public paused;                                             // Whether the contract is paused
+    mapping(string => string) public machine2PreRegion;             // Maps machine ID to pre-assigned region
 
+    // Events for staking operations
     event Staked(
         address indexed stakeholder, string machineId, uint256 originCalcPoint, uint256 calcPoint, string region
-    );
+    );  // Emitted when a machine is staked
 
-    event ReserveDLC(string machineId, uint256 amount);
-    event Unstaked(address indexed stakeholder, string machineId, uint256 paybackReserveAmount);
+    event ReserveDLC(string machineId, uint256 amount);  // Emitted when DLC is reserved for a machine
+    event Unstaked(address indexed stakeholder, string machineId, uint256 paybackReserveAmount);  // Emitted when a machine is unstaked
     event Claimed(
         address indexed stakeholder,
         string machineId,
@@ -138,35 +176,53 @@ contract BandWidthStaking is
         uint256 moveToUserWalletAmount,
         uint256 moveToReservedAmount,
         bool paidSlash
-    );
+    );  // Emitted when rewards are claimed
 
-    //    event AddNFTs(string machineId, uint256[] nftTokenIds);
-    event RentMachine(string machineId);
-    event EndRentMachine(string machineId);
-    event ReportMachineFault(string machineId, uint256 slashId, address renter);
-    event BurnedInactiveRegionRewards(uint256 amount);
-    event BurnedInactiveSingleRegionRewards(string region, uint256 amount);
-    event DepositReward(uint256 amount);
-    event AddBackCalcPointOnOnline(string machineId, uint256 calcPoint);
-    event MachineRegister(string machineId, uint256 calcPoint);
-    event MachineUnregister(string machineId, uint256 calcPoint);
-    event SlashMachineOnOffline(address indexed stakeHolder, string machineId, uint256 slashAmount);
-    event BurnAddressSet(address indexed burnAddress);
-    event MoveToReserveAmount(string machineId, address holder, uint256 amount);
-    event PaySlash(string machineId, address to, uint256 slashAmount);
-    event ExitStakingForOffline(string machineId, address holder);
-    event RecoverRewarding(string machineId, address holder);
+    // Events for machine rental operations
+    event RentMachine(string machineId);  // Emitted when a machine is rented
+    event EndRentMachine(string machineId);  // Emitted when machine rental ends
+    event ReportMachineFault(string machineId, uint256 slashId, address renter);  // Emitted when machine fault is reported
+    
+    // Events for reward management
+    event BurnedInactiveRegionRewards(uint256 amount);  // Emitted when inactive region rewards are burned
+    event BurnedInactiveSingleRegionRewards(string region, uint256 amount);  // Emitted when single region rewards are burned
+    event DepositReward(uint256 amount);  // Emitted when rewards are deposited
+    
+    // Events for machine state changes
+    event AddBackCalcPointOnOnline(string machineId, uint256 calcPoint);  // Emitted when calc points are restored on machine online
+    event MachineRegister(string machineId, uint256 calcPoint);  // Emitted when a machine is registered
+    event MachineUnregister(string machineId, uint256 calcPoint);  // Emitted when a machine is unregistered
+    
+    // Events for slashing operations
+    event SlashMachineOnOffline(address indexed stakeHolder, string machineId, uint256 slashAmount);  // Emitted when machine is slashed for going offline
+    event PaySlash(string machineId, address to, uint256 slashAmount);  // Emitted when slash payment is made
+    
+    // Events for administrative operations
+    event BurnAddressSet(address indexed burnAddress);  // Emitted when burn address is set
+    event MoveToReserveAmount(string machineId, address holder, uint256 amount);  // Emitted when amount is moved to reserve
+    event ExitStakingForOffline(string machineId, address holder);  // Emitted when staking is exited due to offline
+    event RecoverRewarding(string machineId, address holder);  // Emitted when rewarding is recovered
 
+    /**
+     * @dev Modifier to restrict access to only the DBC AI contract
+     */
     modifier onlyDBCAIContract() {
         require(msg.sender == address(dbcAIContract), "only dbc AI contract");
         _;
     }
 
-    /// @custom:oz-upgrades-unsafe-allow constructor
+    /**
+     * @dev Constructor that disables initializers to prevent implementation contract initialization
+     * @custom:oz-upgrades-unsafe-allow constructor
+     */
     constructor() {
         _disableInitializers();
     }
 
+    /**
+     * @dev Handles the receipt of multiple ERC1155 token types
+     * @return bytes4 The selector to confirm token transfer
+     */
     function onERC1155BatchReceived(
         address, /* unusedParameter */
         address, /* unusedParameter */
@@ -177,6 +233,10 @@ contract BandWidthStaking is
         return this.onERC1155BatchReceived.selector;
     }
 
+    /**
+     * @dev Handles the receipt of a single ERC1155 token type
+     * @return bytes4 The selector to confirm token transfer
+     */
     function onERC1155Received(
         address, /* unusedParameter */
         address, /* unusedParameter */
@@ -187,10 +247,23 @@ contract BandWidthStaking is
         return this.onERC1155Received.selector;
     }
 
+    /**
+     * @dev Checks if the contract supports a given interface
+     * @param interfaceId The interface identifier to check
+     * @return bool True if the interface is supported
+     */
     function supportsInterface(bytes4 interfaceId) external pure returns (bool) {
         return interfaceId == type(IERC1155Receiver).interfaceId;
     }
 
+    /**
+     * @dev Initializes the contract with required parameters
+     * @param _initialOwner Address of the initial contract owner
+     * @param _slashPayToAddress Address to receive slash payments
+     * @param _nftToken Address of the NFT token contract
+     * @param _rewardToken Address of the reward token contract
+     * @param _dbcAIContract Address of the DBC AI contract
+     */
     function initialize(
         address _initialOwner,
         address _slashPayToAddress,
@@ -215,41 +288,77 @@ contract BandWidthStaking is
         setRegions();
     }
 
+    /**
+     * @dev Internal function to authorize contract upgrades
+     * @param newImplementation Address of the new implementation contract
+     */
     function _authorizeUpgrade(address newImplementation) internal view override onlyOwner {
         require(newImplementation != address(0), "new implementation is the zero address");
         require(msg.sender == canUpgradeAddress, "only canUpgradeAddress can authorize upgrade");
     }
 
+    /**
+     * @dev Sets the address authorized to upgrade the contract
+     * @param addr New upgrade authorization address
+     */
     function setUpgradeAddress(address addr) external onlyOwner {
         canUpgradeAddress = addr;
     }
 
+    /**
+     * @dev Sets the address to receive slash payments
+     * @param addr New slash payment address
+     */
     function setSlashPayToAddress(address addr) external onlyOwner {
         slashPayToAddress = addr;
     }
 
+    /**
+     * @dev Sets the address where burned tokens are sent
+     * @param _burnAddress New burn address
+     */
     function setBurnAddress(address _burnAddress) external onlyOwner {
         burnAddress = _burnAddress;
         emit BurnAddressSet(_burnAddress);
     }
 
+    /**
+     * @dev Sets the reward token contract address
+     * @param token New reward token contract address
+     */
     function setRewardToken(address token) external onlyOwner {
         rewardToken = IRewardToken(token);
     }
 
+    /**
+     * @dev Sets the NFT token contract address
+     * @param token New NFT token contract address
+     */
     function setNftToken(address token) external onlyOwner {
         nftToken = IERC1155(token);
     }
 
+    /**
+     * @dev Sets the timestamp when rewards start being distributed
+     * @param timestamp New reward start timestamp
+     */
     function setRewardStartAt(uint256 timestamp) external onlyOwner {
         require(timestamp >= block.timestamp, "time must be greater than current block number");
         rewardStartAtTimestamp = timestamp;
     }
 
+    /**
+     * @dev Pauses or unpauses the contract
+     * @param _paused True to pause, false to unpause
+     */
     function setPaused(bool _paused) external onlyOwner {
         paused = _paused;
     }
 
+    /**
+     * @dev Sets multiple DLC client wallet addresses
+     * @param addrs Array of addresses to be marked as DLC client wallets
+     */
     function setDLCClientWallets(address[] calldata addrs) external onlyOwner {
         for (uint256 i = 0; i < addrs.length; i++) {
             require(addrs[i] != address(0), "address is zero");
@@ -258,10 +367,18 @@ contract BandWidthStaking is
         }
     }
 
+    /**
+     * @dev Sets the DBC AI contract address
+     * @param addr New DBC AI contract address
+     */
     function setDBCAIContract(address addr) external onlyOwner {
         dbcAIContract = IDBCAIContract(addr);
     }
 
+    /**
+     * @dev Internal function to initialize all supported regions and their values
+     * Sets up the geographic regions and their corresponding reward weights
+     */
     function setRegions() internal {
         totalRegionValue = 547000;
         regions = [
@@ -398,6 +515,11 @@ contract BandWidthStaking is
         require(totalValue == totalRegionValue, "total value is not correct");
     }
 
+    /**
+     * @dev Sets a new region for a specific machine
+     * @param machineId ID of the machine to update
+     * @param newRegion New region to assign to the machine
+     */
     function setRegion(string calldata machineId, string calldata newRegion) external onlyOwner {
         StakeInfo storage stakeInfo = machineId2StakeInfos[machineId];
         require(stakeInfo.nftCount > 0, "not in staking");
@@ -406,6 +528,10 @@ contract BandWidthStaking is
         machine2PreRegion[machineId] = newRegion;
     }
 
+    /**
+     * @dev Calculates the total rewards accumulated in inactive regions
+     * @return uint256 Total amount of rewards from inactive regions
+     */
     function inactiveRegionRewards() public returns (uint256) {
         uint256 durationInactiveReward = 0;
 
@@ -424,6 +550,11 @@ contract BandWidthStaking is
         return durationInactiveReward;
     }
 
+    /**
+     * @dev Checks if a region is considered inactive
+     * @param region Name of the region to check
+     * @return bool True if the region is inactive
+     */
     function isInactiveRegion(string memory region) internal view returns (bool) {
         uint256 duration = block.timestamp - lastBurnTime;
         RegionStakeInfo memory info = region2StakeInfo[region];
@@ -433,6 +564,10 @@ contract BandWidthStaking is
         return false;
     }
 
+    /**
+     * @dev Burns rewards accumulated in inactive regions
+     * Transfers inactive region rewards to the burn address
+     */
     function burnInactiveRegionRewards() internal {
         uint256 durationInactiveReward = inactiveRegionRewards();
         totalBurnedRewardAmount += durationInactiveReward;
@@ -445,6 +580,11 @@ contract BandWidthStaking is
         emit BurnedInactiveRegionRewards(durationInactiveReward);
     }
 
+    /**
+     * @dev Initializes locked reward information for a machine if not already set
+     * @param machineId ID of the machine
+     * @param currentTime Current timestamp
+     */
     function _tryInitMachineLockRewardInfo(string memory machineId, uint256 currentTime) internal {
         if (machineId2LockedRewardDetail[machineId].lockTime == 0) {
             machineId2LockedRewardDetail[machineId] = LockedRewardDetail({
@@ -456,6 +596,10 @@ contract BandWidthStaking is
         }
     }
 
+    /**
+     * @dev Calculates the maximum number of NFTs that can be staked based on elapsed time
+     * @return uint256 Maximum NFT count allowed for staking
+     */
     function getMaxNFTCountCanStake() public view returns (uint256) {
         uint256 timestamp = block.timestamp;
         require(timestamp >= rewardStartAtTimestamp, "Timestamp must be after start time");
@@ -477,6 +621,11 @@ contract BandWidthStaking is
         return limit;
     }
 
+    /**
+     * @dev Adds DLC tokens to an existing stake
+     * @param machineId ID of the machine to add DLC to
+     * @param amount Amount of DLC tokens to add
+     */
     function addDLCToStake(string memory machineId, uint256 amount) external nonReentrant {
         require(isStaking(machineId), "machine not staked");
         if (amount == 0) {
@@ -502,12 +651,25 @@ contract BandWidthStaking is
         emit ReserveDLC(machineId, amount);
     }
 
+    /**
+     * @dev Validates machine specifications for staking eligibility
+     * @param calcPoint Calculation points of the machine
+     * @param gpuType GPU type of the machine
+     * @param mem Memory size of the machine
+     */
     function revertIfMachineInfoCanNotStake(uint256 calcPoint, string memory gpuType, uint256 mem) internal pure {
         require(mem >= 16, "memory size must greater than or equal to 16G");
         require(ToolLib.checkString(gpuType), "gpu type not match");
         require(calcPoint > 0, "machine calc point not found");
     }
 
+    /**
+     * @dev Stakes NFTs for a machine to earn rewards
+     * @param stakeholder Address of the stakeholder
+     * @param machineId ID of the machine to stake
+     * @param nftTokenIds Array of NFT token IDs to stake
+     * @param nftTokenIdBalances Array of NFT token balances to stake
+     */
     function stake(
         address stakeholder,
         string calldata machineId,
@@ -589,6 +751,11 @@ contract BandWidthStaking is
     //        return pendingSlashedMachineId2Renter[machineId].length;
     //    }
 
+    /**
+     * @dev Checks if a machine is currently being slashed
+     * @param machineId ID of the machine to check
+     * @return bool True if the machine is in slashing state
+     */
     function isInSlashing(string memory machineId) public view returns (bool) {
         uint256 slashId = machine2LastSlashId[machineId];
         if (slashId == 0) {
@@ -598,6 +765,14 @@ contract BandWidthStaking is
         return (slashId2SlashInfo[slashId].paid == false && slashId2SlashInfo[slashId].slashAmount > 0);
     }
 
+    /**
+     * @dev Gets comprehensive reward information for a machine
+     * @param machineId ID of the machine
+     * @return newRewardAmount Total new reward amount
+     * @return canClaimAmount Amount that can be claimed immediately
+     * @return lockedAmount Amount that is locked
+     * @return claimedAmount Amount already claimed
+     */
     function getRewardInfo(string memory machineId)
         public
         view
@@ -617,6 +792,11 @@ contract BandWidthStaking is
         );
     }
 
+    /**
+     * @dev Calculates the total count of NFTs from balance array
+     * @param nftTokenIdBalances Array of NFT token balances
+     * @return nftCount Total count of NFTs
+     */
     function getNFTCount(uint256[] calldata nftTokenIdBalances) internal pure returns (uint256 nftCount) {
         for (uint256 i = 0; i < nftTokenIdBalances.length; i++) {
             nftCount += nftTokenIdBalances[i];
@@ -625,12 +805,21 @@ contract BandWidthStaking is
         return nftCount;
     }
 
+    /**
+     * @dev Calculates rewards per second for a specific region
+     * @param region Name of the region
+     * @return uint256 Rewards per second for the region
+     */
     function getRegionRewardsPerSeconds(string memory region) public view returns (uint256) {
         uint256 regionValue = region2Value[region];
         uint256 totalRewardPerSecond = getDailyRewardAmount() / 1 days;
         return totalRewardPerSecond * regionValue / totalRegionValue;
     }
 
+    /**
+     * @dev Internal function to process reward claims for a machine
+     * @param machineId ID of the machine to claim rewards for
+     */
     function _claim(string memory machineId) internal {
         require(paused == false, "paused");
         require(rewardStart(), "reward not start yet");
@@ -702,10 +891,23 @@ contract BandWidthStaking is
         );
     }
 
+    /**
+     * @dev Gets all machine IDs staked by a specific stakeholder
+     * @param holder Address of the stakeholder
+     * @return string[] Array of machine IDs
+     */
     function getMachineIdsByStakeholder(address holder) external view returns (string[] memory) {
         return holder2MachineIds[holder];
     }
 
+    /**
+     * @dev Gets aggregated reward information for all machines owned by a stakeholder
+     * @param holder Address of the stakeholder
+     * @return availableRewardAmount Total available reward amount
+     * @return canClaimAmount Total amount that can be claimed
+     * @return lockedAmount Total locked amount
+     * @return claimedAmount Total claimed amount
+     */
     function getAllRewardInfo(address holder)
         external
         view
@@ -723,6 +925,10 @@ contract BandWidthStaking is
         return (availableRewardAmount, canClaimAmount, lockedAmount, claimedAmount);
     }
 
+    /**
+     * @dev Claims rewards for a specific machine
+     * @param machineId ID of the machine to claim rewards for
+     */
     function claim(string memory machineId) public nonReentrant {
         require(!isInSlashing(machineId), "machine should restake and paid slash before claim");
 
@@ -732,6 +938,14 @@ contract BandWidthStaking is
         _claim(machineId);
     }
 
+    /**
+     * @dev Internal function to move claimable amount to reserve
+     * @param machineId ID of the machine
+     * @param canClaimAmount Amount that can be claimed
+     * @param stakeInfo Storage reference to stake information
+     * @return moveToReserveAmount Amount moved to reserve
+     * @return leftAmountCanClaim Remaining amount that can be claimed
+     */
     function tryMoveReserve(string memory machineId, uint256 canClaimAmount, StakeInfo storage stakeInfo)
         internal
         returns (uint256 moveToReserveAmount, uint256 leftAmountCanClaim)
@@ -755,6 +969,10 @@ contract BandWidthStaking is
         return (moveToReserveAmount, canClaimAmount);
     }
 
+    /**
+     * @dev Unstakes a machine and withdraws all staked tokens
+     * @param machineId ID of the machine to unstake
+     */
     function unStake(string calldata machineId) public nonReentrant {
         StakeInfo storage stakeInfo = machineId2StakeInfos[machineId];
         require(dlcClientWalletAddress[msg.sender] || msg.sender == stakeInfo.holder, "not dlc client wallet or owner");
@@ -766,6 +984,11 @@ contract BandWidthStaking is
         _unStake(machineId, stakeInfo.holder);
     }
 
+    /**
+     * @dev Internal function to handle the unstaking process
+     * @param machineId ID of the machine to unstake
+     * @param stakeholder Address of the stakeholder
+     */
     function _unStake(string memory machineId, address stakeholder) internal {
         StakeInfo storage stakeInfo = machineId2StakeInfos[machineId];
         uint256 reservedAmount = stakeInfo.reservedAmount;
@@ -794,6 +1017,11 @@ contract BandWidthStaking is
         emit Unstaked(stakeholder, machineId, reservedAmount);
     }
 
+    /**
+     * @dev Removes a machine ID from the holder's machine list
+     * @param holder Address of the stakeholder
+     * @param machineId ID of the machine to remove
+     */
     function removeStakingMachineFromHolder(address holder, string memory machineId) internal {
         string[] storage machineIds = holder2MachineIds[holder];
         for (uint256 i = 0; i < machineIds.length; i++) {
@@ -805,11 +1033,21 @@ contract BandWidthStaking is
         }
     }
 
+    /**
+     * @dev Gets the stakeholder address for a specific machine
+     * @param machineId ID of the machine
+     * @return address Address of the stakeholder
+     */
     function getStakeHolder(string calldata machineId) external view returns (address) {
         StakeInfo memory stakeInfo = machineId2StakeInfos[machineId];
         return stakeInfo.holder;
     }
 
+    /**
+     * @dev Checks if a machine is currently staking
+     * @param machineId ID of the machine to check
+     * @return bool True if the machine is actively staking
+     */
     function isStaking(string memory machineId) public view returns (bool) {
         StakeInfo storage stakeInfo = machineId2StakeInfos[machineId];
         bool _isStaking = stakeInfo.holder != address(0) && stakeInfo.startAtTimestamp > 0;
@@ -847,6 +1085,10 @@ contract BandWidthStaking is
         emit PaySlash(machineId, slashToPayAddress, BASE_RESERVE_AMOUNT);
     }
 
+    /**
+     * @dev Gets the daily reward amount for the entire system
+     * @return uint256 Daily reward amount
+     */
     function getDailyRewardAmount() public view returns (uint256) {
         return RewardCalculator._getDailyRewardAmount(totalDistributedRewardAmount, totalBurnedRewardAmount);
     }
@@ -857,11 +1099,23 @@ contract BandWidthStaking is
     //        emit RewardsPerCalcPointUpdate(accumulatedPerShareBefore, rewardsPerCalcPoint.accumulatedPerShare);
     //    }
 
+    /**
+     * @dev Calculates machine shares based on calculation points and reserved amount
+     * @param calcPoint Calculation points for the machine
+     * @param reservedAmount Reserved amount for the machine
+     * @return uint256 Machine shares
+     */
     function _getMachineShares(uint256 calcPoint, uint256 reservedAmount) public pure returns (uint256) {
         return
             calcPoint * ToolLib.LnUint256(reservedAmount > BASE_RESERVE_AMOUNT ? reservedAmount : BASE_RESERVE_AMOUNT);
     }
 
+    /**
+     * @dev Internal function to join or update staking parameters
+     * @param machineId ID of the machine
+     * @param calcPoint New calculation points
+     * @param reserveAmount New reserve amount
+     */
     function _joinStaking(string memory machineId, uint256 calcPoint, uint256 reserveAmount) internal {
         StakeInfo storage stakeInfo = machineId2StakeInfos[machineId];
 
@@ -897,6 +1151,11 @@ contract BandWidthStaking is
         }
     }
 
+    /**
+     * @dev Calculates the total reward amount for a machine
+     * @param machineId ID of the machine
+     * @return uint256 Total reward amount
+     */
     function getReward(string memory machineId) public view returns (uint256) {
         StakeInfo memory stakeInfo = machineId2StakeInfos[machineId];
         if (stakeInfo.lastClaimAtTimestamp > stakeInfo.endAtTimestamp && stakeInfo.endAtTimestamp > 0) {
@@ -953,6 +1212,12 @@ contract BandWidthStaking is
         return slashInfo;
     }
 
+    /**
+     * @dev Handles notifications from DBCAI contract about machine status changes
+     * @param tp Type of notification (ContractRegister, MachineOffline, MachineOnline)
+     * @param machineId ID of the machine (if applicable)
+     * @return bool True if notification was processed successfully
+     */
     function notify(NotifyType tp, string calldata machineId) external onlyDBCAIContract returns (bool) {
         if (tp == NotifyType.ContractRegister) {
             registered = true;
@@ -995,6 +1260,11 @@ contract BandWidthStaking is
         emit RecoverRewarding(machineId, stakeInfo.holder);
     }
 
+    /**
+     * @dev Gets comprehensive machine information for DBC scan
+     * @param machineId ID of the machine
+     * @return MachineInfoForDBCScan Struct containing all machine information
+     */
     function getMachineInfoForDBCScan(string memory machineId) external view returns (MachineInfoForDBCScan memory) {
         (, uint256 canClaimAmount,, uint256 claimedAmount) = getRewardInfo(machineId);
         //        uint256 totalRewardAmount = canClaimAmount + lockedAmount + claimedAmount;
@@ -1022,12 +1292,25 @@ contract BandWidthStaking is
         return machineInfo;
     }
 
+    /**
+     * @dev Gets the daily reward amount for a specific region
+     * @param _region Name of the region
+     * @return uint256 Daily reward amount for the region
+     */
     function getRegionDailyRewardAmount(string memory _region) public view returns (uint256) {
         uint256 regionValue = region2Value[_region];
         uint256 regionDailyRewardAmount = (getDailyRewardAmount() * regionValue) / totalRegionValue;
         return regionDailyRewardAmount;
     }
 
+    /**
+     * @dev Pre-calculates potential rewards for staking parameters
+     * @param region Region where the machine will be staked
+     * @param calcPoint Calculation points for the machine
+     * @param nftCount Number of NFTs to stake
+     * @param reserveAmount Amount to reserve
+     * @return uint256 Estimated daily rewards
+     */
     function preCalculateRewards(string memory region, uint256 calcPoint, uint256 nftCount, uint256 reserveAmount)
         public
         view
