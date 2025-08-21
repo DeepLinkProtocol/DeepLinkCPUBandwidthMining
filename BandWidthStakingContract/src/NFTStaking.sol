@@ -154,6 +154,8 @@ contract BandWidthStaking is
     event BurnAddressSet(address indexed burnAddress);
     event MoveToReserveAmount(string machineId, address holder, uint256 amount);
     event PaySlash(string machineId, address to, uint256 slashAmount);
+    event ExitStakingForOffline(string machineId, address holder);
+    event RecoverRewarding(string machineId, address holder);
 
     modifier onlyDBCAIContract() {
         require(msg.sender == address(dbcAIContract), "only dbc AI contract");
@@ -545,7 +547,7 @@ contract BandWidthStaking is
         uint256 currentTime = block.timestamp;
 
         string memory preRegin = machine2PreRegion[machineId];
-        if (keccak256(abi.encodePacked(preRegin))!= keccak256(abi.encodePacked(""))){
+        if (keccak256(abi.encodePacked(preRegin)) != keccak256(abi.encodePacked(""))) {
             region = preRegin;
         }
 
@@ -951,7 +953,6 @@ contract BandWidthStaking is
         return slashInfo;
     }
 
-
     function notify(NotifyType tp, string calldata machineId) external onlyDBCAIContract returns (bool) {
         if (tp == NotifyType.ContractRegister) {
             registered = true;
@@ -963,13 +964,35 @@ contract BandWidthStaking is
             return false;
         }
 
-        StakeInfo memory stakeInfo = machineId2StakeInfos[machineId];
         if (tp == NotifyType.MachineOffline) {
-            //            SlashInfo memory slashInfo = newSlashInfo(stakeInfo.holder, machineId, BASE_RESERVE_AMOUNT);
-            //            addSlashInfoAndReport(slashInfo);
-            emit SlashMachineOnOffline(stakeInfo.holder, machineId, BASE_RESERVE_AMOUNT);
+            _stopRewarding(machineId);
+        } else if (tp == NotifyType.MachineOnline && isStakingButOffline(machineId)) {
+            _recoverRewarding(machineId);
         }
         return true;
+    }
+
+    function isStakingButOffline(string calldata machineId) internal view returns (bool) {
+        StakeInfo memory stakeInfo = machineId2StakeInfos[machineId];
+        return stakeInfo.calcPoint == 0 && stakeInfo.nftCount > 0;
+    }
+
+    function _stopRewarding(string memory machineId) internal {
+        StakeInfo storage stakeInfo = machineId2StakeInfos[machineId];
+        _joinStaking(machineId, 0, stakeInfo.reservedAmount);
+
+        emit ExitStakingForOffline(machineId, stakeInfo.holder);
+    }
+
+    function _recoverRewarding(string memory machineId) internal {
+        StakeInfo storage stakeInfo = machineId2StakeInfos[machineId];
+        if (stakeInfo.calcPoint != 0) {
+            return;
+        }
+        (,,,,,, uint256 bandwidth) = dbcAIContract.machineBandWidthInfos(machineId);
+        bandwidth = bandwidth * stakeInfo.nftCount;
+        _joinStaking(machineId, bandwidth, stakeInfo.reservedAmount);
+        emit RecoverRewarding(machineId, stakeInfo.holder);
     }
 
     function getMachineInfoForDBCScan(string memory machineId) external view returns (MachineInfoForDBCScan memory) {
