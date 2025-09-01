@@ -59,7 +59,6 @@ contract BandWidthStaking is
 
     uint256 public lastBurnTime; // Timestamp of last burn operation
     string[] public regions; // Array of supported regions
-
     /**
      * @dev Enum defining different types of staking periods
      */
@@ -208,6 +207,11 @@ contract BandWidthStaking is
      */
     modifier onlyDBCAIContract() {
         require(msg.sender == address(dbcAIContract), "only dbc AI contract");
+        _;
+    }
+
+    modifier onlyDLCClientWallet() {
+        require(dlcClientWalletAddress[msg.sender] || msg.sender == owner(), "not admin");
         _;
     }
 
@@ -520,9 +524,9 @@ contract BandWidthStaking is
      * @param machineId ID of the machine to update
      * @param newRegion New region to assign to the machine
      */
-    function setRegion(string calldata machineId, string calldata newRegion) external onlyOwner {
+    function setRegion(string calldata machineId, string calldata newRegion) external onlyDLCClientWallet {
         StakeInfo storage stakeInfo = machineId2StakeInfos[machineId];
-        require(stakeInfo.nftCount > 0, "not in staking");
+        // require(stakeInfo.nftCount > 0, "not in staking");
         require(region2Value[newRegion] > 0, "invalid region");
         require(keccak256(abi.encodePacked(newRegion)) != keccak256(abi.encodePacked(stakeInfo.region)), "same region");
         machine2PreRegion[machineId] = newRegion;
@@ -732,9 +736,7 @@ contract BandWidthStaking is
             originCalcPoint: bandwidth
         });
 
-        machine2PreRegion[machineId] = "";
-
-        //        machineId2StakeUnitRewards[machineId].lastAccumulatedPerShare = rewardsPerCalcPoint.accumulatedPerShare;
+        // machine2PreRegion[machineId] = "";
 
         _joinStaking(machineId, calcPoint, 0);
         _tryInitMachineLockRewardInfo(machineId, currentTime);
