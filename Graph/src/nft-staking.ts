@@ -201,9 +201,14 @@ export function handleClaimed(event: ClaimedEventSrc): void {
 
   machineInfo.totalClaimedRewardAmount =
     machineInfo.totalClaimedRewardAmount.plus(event.params.totalRewardAmount);
+  // FIX (round-3 Solidity audit): `_claim` can invoke `tryMoveReserve` twice
+  // in one call — each emits its own `MoveToReserveAmount`, but `Claimed`
+  // only reports the LAST move's amount in `moveToReservedAmount`. To avoid
+  // under-counting released-to-reserve in that double-path case, we attribute
+  // wallet-released here and let `handleMoveToReserveAmount` attribute
+  // reserved-released per MoveToReserveAmount event (exactly once per move).
   machineInfo.totalReleasedRewardAmount = machineInfo.totalReleasedRewardAmount
-    .plus(event.params.moveToUserWalletAmount)
-    .plus(event.params.moveToReservedAmount);
+    .plus(event.params.moveToUserWalletAmount);
   machineInfo.save();
 
   // Region daily delta (once we know the region from machineInfo).
@@ -248,6 +253,14 @@ export function handleMoveToReserveAmount(
   }
 
   machineInfo.totalReservedAmount = machineInfo.totalReservedAmount.plus(
+    event.params.amount
+  );
+  // FIX (round-3 Solidity audit): `totalReleasedRewardAmount` counts rewards
+  // that moved out of the accumulator (wallet + reserved). Each
+  // MoveToReserveAmount is a release-to-reserved event. Attributing it here
+  // (instead of in handleClaimed) makes the total correct even when `_claim`
+  // emits two MoveToReserveAmount events in one call.
+  machineInfo.totalReleasedRewardAmount = machineInfo.totalReleasedRewardAmount.plus(
     event.params.amount
   );
   machineInfo.save();
@@ -406,6 +419,14 @@ export function handleReserveDLC(event: ReserveDLCEventSrc): void {
 }
 
 export function handleStaked(event: StakedEventSrc): void {
+  // FIX (round-3 audit): reject empty region. An empty `region` string would
+  // produce `Bytes.fromUTF8("") == Bytes.empty()`, which is the ID used by
+  // the singleton `StateSummary`. One malformed event would corrupt the
+  // global summary. Contracts shouldn't emit empty region, but guard anyway.
+  if (event.params.region.length == 0) {
+    return;
+  }
+
   let id = Bytes.fromUTF8(event.params.machineId.toString());
   let machineInfo = MachineInfo.load(id);
   let isNewMachine: boolean = false;
@@ -699,6 +720,12 @@ export function handleBurnedInactiveRegionRewards(
 export function handleBurnedInactiveSingleRegionRewards(
   event: BurnedInactiveSingleRegionRewardsEvent
 ): void {
+  // Same empty-region guard as handleStaked — empty region would collide
+  // with StateSummary at id = Bytes.empty().
+  if (event.params.region.length == 0) {
+    return;
+  }
+
   let regionInfo = RegionInfo.load(Bytes.fromUTF8(event.params.region));
   if (regionInfo == null) {
     regionInfo = new RegionInfo(Bytes.fromUTF8(event.params.region));
@@ -865,6 +892,17 @@ export function handleAddBackCalcPointOnOnline(
 export function handleExitStakingForOffline(
   event: ExitStakingForOfflineEvent
 ): void {
+  // FIX (round-3 Solidity audit): the live contract never emits
+  // SlashMachineOnOffline; `notify(MachineOffline)` → `_stopRewarding` →
+  // ExitStakingForOffline is what actually fires. Route the `online=false`
+  // flip here so `machineInfo.online` isn't a dead field.
+  let mid = Bytes.fromUTF8(event.params.machineId);
+  let machineInfo = MachineInfo.load(mid);
+  if (machineInfo !== null) {
+    machineInfo.online = false;
+    machineInfo.save();
+  }
+
   emitLifecycle(
     event,
     event.params.machineId,
@@ -876,6 +914,16 @@ export function handleExitStakingForOffline(
 }
 
 export function handleRecoverRewarding(event: RecoverRewardingEvent): void {
+  // FIX (round-3 Solidity audit): AddBackCalcPointOnOnline is also
+  // declared in ABI but only RecoverRewarding fires on the live contract
+  // for bringing a machine back online — flip `online=true` here.
+  let mid = Bytes.fromUTF8(event.params.machineId);
+  let machineInfo = MachineInfo.load(mid);
+  if (machineInfo !== null) {
+    machineInfo.online = true;
+    machineInfo.save();
+  }
+
   emitLifecycle(
     event,
     event.params.machineId,

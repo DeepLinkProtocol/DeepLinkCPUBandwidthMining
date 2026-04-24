@@ -1,6 +1,9 @@
 specVersion: 1.2.0
 indexerHints:
-  prune: auto
+  # `prune: auto` discards historical entity versions, which breaks
+  # block-pinned time-travel queries (`block: { number: N }`). Disable
+  # pruning so v2's query semantics match what we historically shipped.
+  prune: never
 schema:
   file: ./schema.graphql
 dataSources:
