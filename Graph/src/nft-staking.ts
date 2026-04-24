@@ -372,10 +372,8 @@ export function handleReserveDLC(event: ReserveDLCEventSrc): void {
     Bytes.fromHexString(machineInfo.holder.toHexString())
   );
   if (stakeholder == null) {
-    // never happen
-    stakeholder = new StakeHolder(
-      Bytes.fromHexString(machineInfo.holder.toHexString())
-    );
+    // ReserveDLC without a prior Staked is a contract invariant violation;
+    // we skip the aggregate mutation but keep the machineInfo update above.
     return;
   }
 
@@ -478,6 +476,7 @@ export function handleStaked(event: StakedEventSrc): void {
   machineInfo.holderRef = stakeholder.id;
 
   let isNewRegion: boolean = false;
+  let regionWasDormant: boolean = false;
   let regionInfo = RegionInfo.load(Bytes.fromUTF8(machineInfo.region));
   if (regionInfo == null) {
     isNewRegion = true;
@@ -489,6 +488,11 @@ export function handleStaked(event: StakedEventSrc): void {
     regionInfo.stakingBandwidth = BigInt.fromI32(0);
     regionInfo.reservedAmount = BigInt.fromI32(0);
     regionInfo.burnedAmount = BigInt.fromI32(0);
+  } else if (regionInfo.stakingMachineCount.equals(BigInt.zero())) {
+    // FIX: region existed but had no active stakers — re-entering the
+    // "active region" set. Without this flag, totalRegionCount stays
+    // permanently undercounted after a region goes 1 → 0 → 1.
+    regionWasDormant = true;
   }
 
   regionInfo.stakingMachineCount = regionInfo.stakingMachineCount.plus(
@@ -531,9 +535,10 @@ export function handleStaked(event: StakedEventSrc): void {
       machineInfo.totalCalcPoint
     );
   }
-  if (isNewRegion) {
-    // FIX: v1 had `.minus(1)` which underflowed the region counter on every
-    // new region. Should increment.
+  if (isNewRegion || regionWasDormant) {
+    // FIX: v1 had `.minus(1)` here (sign flip) AND had no re-activation
+    // branch, so `totalRegionCount` underflowed on each new region AND
+    // stayed undercounted after any region went 1 → 0 → 1.
     stateSummary.totalRegionCount = stateSummary.totalRegionCount.plus(
       BigInt.fromI32(1)
     );
@@ -712,7 +717,9 @@ export function handleBurnedInactiveSingleRegionRewards(
 
   regionInfo.save();
 
-  let regionBurnInfo = new RegionBurnInfo(event.transaction.hash);
+  // FIX: use eventLogId to avoid collision when two regions burn in the same tx
+  // (id used to be just the tx hash, so the later burn would overwrite the earlier).
+  let regionBurnInfo = new RegionBurnInfo(eventLogId(event));
   regionBurnInfo.region = event.params.region;
   regionBurnInfo.burnedAmount = event.params.amount;
   regionBurnInfo.blockTimestamp = event.block.timestamp;
