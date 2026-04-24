@@ -69,3 +69,135 @@ type RegionBurnInfo @entity{
   transactionHash: Bytes!
 }
 
+# ============================================================
+# Time-series event logs (Plan C — dashboard charts)
+# Each event entity is immutable; id = tx hash + log index.
+# ============================================================
+
+enum MachineLifecycleKind {
+  REGISTER
+  UNREGISTER
+  RENT_START
+  RENT_END
+  FAULT_REPORT
+  OFFLINE_SLASH
+  ONLINE_RECOVER
+  EXIT_FOR_OFFLINE
+}
+
+type ClaimedEvent @entity(immutable: true) {
+  id: Bytes!
+  holder: Bytes!
+  machineId: String!
+  totalRewardAmount: BigInt!
+  moveToUserWalletAmount: BigInt!
+  moveToReservedAmount: BigInt!
+  paidSlash: Boolean!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type StakedEvent @entity(immutable: true) {
+  id: Bytes!
+  holder: Bytes!
+  machineId: String!
+  originCalcPoint: BigInt!
+  calcPoint: BigInt!
+  region: String!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type UnstakedEvent @entity(immutable: true) {
+  id: Bytes!
+  holder: Bytes!
+  machineId: String!
+  paybackReserveAmount: BigInt!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type SlashEvent @entity(immutable: true) {
+  id: Bytes!
+  machineId: String!
+  holder: Bytes!              # recipient of slash (PaySlash.to) or stake holder (SlashMachineOnOffline)
+  slashAmount: BigInt!
+  kind: String!               # "PAY_SLASH" | "OFFLINE_SLASH"
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type MachineLifecycleEvent @entity(immutable: true) {
+  id: Bytes!
+  machineId: String!
+  kind: MachineLifecycleKind!
+  actor: Bytes                # holder / renter (optional — some events carry it, some don't)
+  calcPoint: BigInt           # REGISTER / UNREGISTER / ONLINE_RECOVER carry this
+  slashId: BigInt             # FAULT_REPORT
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type DepositRewardEvent @entity(immutable: true) {
+  id: Bytes!
+  amount: BigInt!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type RewardRateUpdateEvent @entity(immutable: true) {
+  id: Bytes!
+  accumulatedPerShareBefore: BigInt!
+  accumulatedPerShareAfter: BigInt!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+# ============================================================
+# Daily aggregate snapshots (Plan C — fast chart queries)
+# id = UTC day number (floor(timestamp / 86400)), or composite.
+# Snapshots write "current state at end of day" on each event.
+# ============================================================
+
+type StateSummaryDaily @entity {
+  id: Bytes!                  # day id (BigInt → Bytes)
+  dayStartTimestamp: BigInt!
+  totalGPUCount: BigInt!
+  totalStakingGPUCount: BigInt!
+  totalBurnedReward: BigInt!
+  totalReservedAmount: BigInt!
+  totalCalcPoint: BigInt!
+  totalRegionCount: BigInt!
+  # deltas for this day (useful for bar charts)
+  claimedAmountDelta: BigInt!
+  burnedRewardDelta: BigInt!
+  depositedRewardDelta: BigInt!
+}
+
+type RegionDaily @entity {
+  id: Bytes!                  # keccak(region + day)
+  region: String!
+  dayStartTimestamp: BigInt!
+  totalMachineCount: BigInt!
+  stakingMachineCount: BigInt!
+  totalBandwidth: BigInt!
+  stakingBandwidth: BigInt!
+  reservedAmount: BigInt!
+  burnedAmountDelta: BigInt!  # burn THIS day
+}
+
+type HolderDaily @entity {
+  id: Bytes!                  # keccak(holder + day)
+  holder: Bytes!
+  dayStartTimestamp: BigInt!
+  totalClaimedRewardAmount: BigInt!   # cumulative at end of day
+  totalReleasedRewardAmount: BigInt!  # cumulative at end of day
+  claimedAmountDelta: BigInt!         # THIS day's claim sum
+}
