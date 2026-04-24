@@ -1,4 +1,4 @@
-import { BigInt, Bytes, ethereum } from '@graphprotocol/graph-ts';
+import { BigInt, Bytes, crypto, ethereum } from '@graphprotocol/graph-ts';
 import {
   Claimed as ClaimedEventSrc,
   PaySlash as PaySlashEventSrc,
@@ -55,17 +55,26 @@ function dayStartSeconds(timestamp: BigInt): BigInt {
 }
 
 function dayBytes(dayId: BigInt): Bytes {
-  return Bytes.fromByteArray(Bytes.fromBigInt(dayId));
+  // Fixed 8-byte big-endian encoding so composite IDs
+  // (regionDayId / holderDayId) don't collide across day magnitudes.
+  let d: i64 = dayId.toI64();
+  let hi: i32 = i32(d >> 32);
+  let lo: i32 = i32(d & 0xFFFFFFFF);
+  return Bytes.fromByteArray(Bytes.empty().concatI32(hi).concatI32(lo));
 }
 
 function regionDayId(region: string, dayId: BigInt): Bytes {
-  // Bytes concat: utf8(region) || dayId
-  let r = Bytes.fromUTF8(region);
-  return r.concat(dayBytes(dayId));
+  // keccak256 over (region_utf8 || day_8byte) — fixed-length hash avoids
+  // variable-length collisions (e.g. "US"+0x4142 vs "USAB"+0x0000).
+  let combined = Bytes.fromUTF8(region).concat(dayBytes(dayId));
+  return Bytes.fromByteArray(crypto.keccak256(combined));
 }
 
 function holderDayId(holder: Bytes, dayId: BigInt): Bytes {
-  return holder.concat(dayBytes(dayId));
+  // holder is a fixed 20-byte address so direct concat is safe,
+  // but keccak for symmetry and insurance against address-wrapping changes.
+  let combined = holder.concat(dayBytes(dayId));
+  return Bytes.fromByteArray(crypto.keccak256(combined));
 }
 
 function loadOrCreateStateSummaryDaily(timestamp: BigInt): StateSummaryDaily {
@@ -84,6 +93,7 @@ function loadOrCreateStateSummaryDaily(timestamp: BigInt): StateSummaryDaily {
     d.claimedAmountDelta = BigInt.zero();
     d.burnedRewardDelta = BigInt.zero();
     d.depositedRewardDelta = BigInt.zero();
+    d.slashAmountDelta = BigInt.zero();
   }
   return d;
 }
@@ -117,6 +127,8 @@ function loadOrCreateRegionDaily(region: string, timestamp: BigInt): RegionDaily
     d.stakingBandwidth = BigInt.zero();
     d.reservedAmount = BigInt.zero();
     d.burnedAmountDelta = BigInt.zero();
+    d.claimedAmountDelta = BigInt.zero();
+    d.slashAmountDelta = BigInt.zero();
   }
   return d;
 }
@@ -149,6 +161,7 @@ function loadOrCreateHolderDaily(holder: Bytes, timestamp: BigInt): HolderDaily 
     d.totalClaimedRewardAmount = BigInt.zero();
     d.totalReleasedRewardAmount = BigInt.zero();
     d.claimedAmountDelta = BigInt.zero();
+    d.activeMachineCount = BigInt.zero();
   }
   return d;
 }
@@ -156,6 +169,30 @@ function loadOrCreateHolderDaily(holder: Bytes, timestamp: BigInt): HolderDaily 
 // -------------------- Existing handlers (preserved + event log writes) --------------------
 
 export function handleClaimed(event: ClaimedEventSrc): void {
+  // Event log written FIRST — unconditional, so it survives the early-return
+  // paths below when an upstream entity is unexpectedly missing.
+  let ce = new ClaimedEvent(eventLogId(event));
+  ce.holder = event.params.stakeholder;
+  ce.machineId = event.params.machineId;
+  ce.totalRewardAmount = event.params.totalRewardAmount;
+  ce.moveToUserWalletAmount = event.params.moveToUserWalletAmount;
+  ce.moveToReservedAmount = event.params.moveToReservedAmount;
+  ce.paidSlash = event.params.paidSlash;
+  ce.blockNumber = event.block.number;
+  ce.blockTimestamp = event.block.timestamp;
+  ce.transactionHash = event.transaction.hash;
+  ce.save();
+
+  // Global daily delta — independent of MachineInfo/StakeHolder state.
+  let dd = loadOrCreateStateSummaryDaily(event.block.timestamp);
+  dd.claimedAmountDelta = dd.claimedAmountDelta.plus(event.params.totalRewardAmount);
+  dd.save();
+
+  // Holder daily delta — also independent (holder address always known).
+  let hdd = loadOrCreateHolderDaily(event.params.stakeholder, event.block.timestamp);
+  hdd.claimedAmountDelta = hdd.claimedAmountDelta.plus(event.params.totalRewardAmount);
+  hdd.save();
+
   let id = Bytes.fromUTF8(event.params.machineId.toString());
   let machineInfo = MachineInfo.load(id);
   if (machineInfo == null) {
@@ -168,6 +205,13 @@ export function handleClaimed(event: ClaimedEventSrc): void {
     .plus(event.params.moveToUserWalletAmount)
     .plus(event.params.moveToReservedAmount);
   machineInfo.save();
+
+  // Region daily delta (once we know the region from machineInfo).
+  if (machineInfo.region.length > 0) {
+    let rd = loadOrCreateRegionDaily(machineInfo.region, event.block.timestamp);
+    rd.claimedAmountDelta = rd.claimedAmountDelta.plus(event.params.totalRewardAmount);
+    rd.save();
+  }
 
   let stakeholder = StakeHolder.load(
     Bytes.fromHexString(machineInfo.holder.toHexString())
@@ -184,31 +228,14 @@ export function handleClaimed(event: ClaimedEventSrc): void {
     stakeholder.totalClaimedRewardAmount.plus(event.params.totalRewardAmount);
   stakeholder.save();
 
-  // Event log
-  let ce = new ClaimedEvent(eventLogId(event));
-  ce.holder = event.params.stakeholder;
-  ce.machineId = event.params.machineId;
-  ce.totalRewardAmount = event.params.totalRewardAmount;
-  ce.moveToUserWalletAmount = event.params.moveToUserWalletAmount;
-  ce.moveToReservedAmount = event.params.moveToReservedAmount;
-  ce.paidSlash = event.params.paidSlash;
-  ce.blockNumber = event.block.number;
-  ce.blockTimestamp = event.block.timestamp;
-  ce.transactionHash = event.transaction.hash;
-  ce.save();
-
-  // Holder daily snapshot
+  // Refresh holder daily cumulative after stakeholder mutation.
   let hd = loadOrCreateHolderDaily(stakeholder.holder, event.block.timestamp);
   hd.totalClaimedRewardAmount = stakeholder.totalClaimedRewardAmount;
   hd.totalReleasedRewardAmount = stakeholder.totalReleasedRewardAmount;
-  hd.claimedAmountDelta = hd.claimedAmountDelta.plus(event.params.totalRewardAmount);
   hd.save();
 
-  // Global daily snapshot
+  // Global cumulative snapshot.
   snapshotStateSummaryDaily(event.block.timestamp);
-  let d = loadOrCreateStateSummaryDaily(event.block.timestamp);
-  d.claimedAmountDelta = d.claimedAmountDelta.plus(event.params.totalRewardAmount);
-  d.save();
 }
 
 export function handleMoveToReserveAmount(
@@ -261,6 +288,22 @@ export function handleMoveToReserveAmount(
 }
 
 export function handlePaySlash(event: PaySlashEventSrc): void {
+  // Event log first — unconditional.
+  let se = new SlashEvent(eventLogId(event));
+  se.machineId = event.params.machineId;
+  se.holder = event.params.to;
+  se.slashAmount = event.params.slashAmount;
+  se.kind = 'PAY_SLASH';
+  se.blockNumber = event.block.number;
+  se.blockTimestamp = event.block.timestamp;
+  se.transactionHash = event.transaction.hash;
+  se.save();
+
+  // Global slash delta — independent of downstream state.
+  let dd = loadOrCreateStateSummaryDaily(event.block.timestamp);
+  dd.slashAmountDelta = dd.slashAmountDelta.plus(event.params.slashAmount);
+  dd.save();
+
   let id = Bytes.fromUTF8(event.params.machineId.toString());
   let machineInfo = MachineInfo.load(id);
   if (machineInfo == null) {
@@ -271,6 +314,21 @@ export function handlePaySlash(event: PaySlashEventSrc): void {
     event.params.slashAmount
   );
   machineInfo.save();
+
+  // Region accounting: missing in original v1 — caused region.reservedAmount
+  // to drift from state/stakeholder and go negative on unstake. Fixed here.
+  let regionInfo = RegionInfo.load(Bytes.fromUTF8(machineInfo.region));
+  if (regionInfo !== null) {
+    regionInfo.reservedAmount = regionInfo.reservedAmount.minus(
+      event.params.slashAmount
+    );
+    regionInfo.save();
+
+    // Region daily slash delta.
+    let rd = loadOrCreateRegionDaily(machineInfo.region, event.block.timestamp);
+    rd.slashAmountDelta = rd.slashAmountDelta.plus(event.params.slashAmount);
+    rd.save();
+  }
 
   let stakeholder = StakeHolder.load(
     Bytes.fromHexString(machineInfo.holder.toHexString())
@@ -293,17 +351,6 @@ export function handlePaySlash(event: PaySlashEventSrc): void {
     event.params.slashAmount
   );
   stateSummary.save();
-
-  // Event log
-  let se = new SlashEvent(eventLogId(event));
-  se.machineId = event.params.machineId;
-  se.holder = event.params.to;
-  se.slashAmount = event.params.slashAmount;
-  se.kind = 'PAY_SLASH';
-  se.blockNumber = event.block.number;
-  se.blockTimestamp = event.block.timestamp;
-  se.transactionHash = event.transaction.hash;
-  se.save();
 
   snapshotStateSummaryDaily(event.block.timestamp);
   snapshotRegionDaily(machineInfo.region, event.block.timestamp);
@@ -485,19 +532,27 @@ export function handleStaked(event: StakedEventSrc): void {
     );
   }
   if (isNewRegion) {
-    stateSummary.totalRegionCount = stateSummary.totalRegionCount.minus(
+    // FIX: v1 had `.minus(1)` which underflowed the region counter on every
+    // new region. Should increment.
+    stateSummary.totalRegionCount = stateSummary.totalRegionCount.plus(
       BigInt.fromI32(1)
     );
   }
   stateSummary.totalStakingGPUCount = stateSummary.totalStakingGPUCount.plus(
     BigInt.fromI32(1)
   );
-  if (stakeholder.totalStakingGPUCount.toU32() == 1) {
+  // FIX: use BigInt.equals to avoid toU32() truncation on large values.
+  if (stakeholder.totalStakingGPUCount.equals(BigInt.fromI32(1))) {
     stateSummary.totalCalcPointPoolCount =
       stateSummary.totalCalcPointPoolCount.plus(BigInt.fromI32(1));
   }
 
   stateSummary.save();
+
+  // HolderDaily active-machine count (after stakeholder increment above).
+  let hd = loadOrCreateHolderDaily(stakeholder.holder, event.block.timestamp);
+  hd.activeMachineCount = stakeholder.totalStakingGPUCount;
+  hd.save();
 
   // Event log
   let ev = new StakedEvent(eventLogId(event));
@@ -516,6 +571,16 @@ export function handleStaked(event: StakedEventSrc): void {
 }
 
 export function handleUnstaked(event: UnstakedEventSrc): void {
+  // Event log first — survives the early-returns below.
+  let ev = new UnstakedEvent(eventLogId(event));
+  ev.holder = event.params.stakeholder;
+  ev.machineId = event.params.machineId;
+  ev.paybackReserveAmount = event.params.paybackReserveAmount;
+  ev.blockNumber = event.block.number;
+  ev.blockTimestamp = event.block.timestamp;
+  ev.transactionHash = event.transaction.hash;
+  ev.save();
+
   let id = Bytes.fromUTF8(event.params.machineId.toString());
   let machineInfo = MachineInfo.load(id);
   if (machineInfo == null) {
@@ -567,7 +632,8 @@ export function handleUnstaked(event: UnstakedEventSrc): void {
 
   regionInfo.save();
 
-  if (regionInfo.stakingMachineCount.toI32() == 0) {
+  // FIX: use BigInt.equals to avoid toI32/toU32 truncation on large values.
+  if (regionInfo.stakingMachineCount.equals(BigInt.zero())) {
     stateSummary.totalRegionCount = stateSummary.totalRegionCount.minus(
       BigInt.fromI32(1)
     );
@@ -577,7 +643,7 @@ export function handleUnstaked(event: UnstakedEventSrc): void {
     BigInt.fromU32(1)
   );
 
-  if (stakeholder.totalCalcPoint.toU32() == 0) {
+  if (stakeholder.totalCalcPoint.equals(BigInt.zero())) {
     stateSummary.totalCalcPointPoolCount =
       stateSummary.totalCalcPointPoolCount.minus(BigInt.fromI32(1));
   }
@@ -597,15 +663,10 @@ export function handleUnstaked(event: UnstakedEventSrc): void {
   machineInfo.registered = false;
   machineInfo.save();
 
-  // Event log
-  let ev = new UnstakedEvent(eventLogId(event));
-  ev.holder = event.params.stakeholder;
-  ev.machineId = event.params.machineId;
-  ev.paybackReserveAmount = event.params.paybackReserveAmount;
-  ev.blockNumber = event.block.number;
-  ev.blockTimestamp = event.block.timestamp;
-  ev.transactionHash = event.transaction.hash;
-  ev.save();
+  // HolderDaily active-machine count (after stakeholder decrement above).
+  let hd = loadOrCreateHolderDaily(stakeholder.holder, event.block.timestamp);
+  hd.activeMachineCount = stakeholder.totalStakingGPUCount;
+  hd.save();
 
   snapshotStateSummaryDaily(event.block.timestamp);
   snapshotRegionDaily(priorRegion, event.block.timestamp);
@@ -643,7 +704,8 @@ export function handleBurnedInactiveSingleRegionRewards(
     regionInfo.stakingBandwidth = BigInt.fromI32(0);
     regionInfo.reservedAmount = BigInt.fromI32(0);
     regionInfo.burnedAmount = BigInt.fromI32(0);
-    return;
+    // FIX: v1 had `return;` here, silently dropping the burn for any region's
+    // first-ever burn event. Fall through so the burn is recorded.
   }
 
   regionInfo.burnedAmount = regionInfo.burnedAmount.plus(event.params.amount);
@@ -746,11 +808,22 @@ export function handleSlashMachineOnOffline(
   se.transactionHash = event.transaction.hash;
   se.save();
 
+  // Daily slash delta (independent of downstream state).
+  let dd = loadOrCreateStateSummaryDaily(event.block.timestamp);
+  dd.slashAmountDelta = dd.slashAmountDelta.plus(event.params.slashAmount);
+  dd.save();
+
   let mid = Bytes.fromUTF8(event.params.machineId);
   let machineInfo = MachineInfo.load(mid);
   if (machineInfo !== null) {
     machineInfo.online = false;
     machineInfo.save();
+
+    if (machineInfo.region.length > 0) {
+      let rd = loadOrCreateRegionDaily(machineInfo.region, event.block.timestamp);
+      rd.slashAmountDelta = rd.slashAmountDelta.plus(event.params.slashAmount);
+      rd.save();
+    }
   }
 
   emitLifecycle(

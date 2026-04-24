@@ -179,6 +179,7 @@ type StateSummaryDaily @entity {
   claimedAmountDelta: BigInt!
   burnedRewardDelta: BigInt!
   depositedRewardDelta: BigInt!
+  slashAmountDelta: BigInt!
 }
 
 type RegionDaily @entity {
@@ -191,6 +192,8 @@ type RegionDaily @entity {
   stakingBandwidth: BigInt!
   reservedAmount: BigInt!
   burnedAmountDelta: BigInt!  # burn THIS day
+  claimedAmountDelta: BigInt! # rewards claimed by machines in this region THIS day
+  slashAmountDelta: BigInt!   # slash amount for machines in this region THIS day
 }
 
 type HolderDaily @entity {
@@ -200,4 +203,5 @@ type HolderDaily @entity {
   totalClaimedRewardAmount: BigInt!   # cumulative at end of day
   totalReleasedRewardAmount: BigInt!  # cumulative at end of day
   claimedAmountDelta: BigInt!         # THIS day's claim sum
+  activeMachineCount: BigInt!         # currently-staking machine count at end of day
 }
